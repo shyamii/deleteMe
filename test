@@ -51,3 +51,33 @@ Identified and remediated potential ORAC (Operational Risk and Control) issues, 
 Analyzed and remediated Veracode issues to enhance application security.
 Consistently followed proper guidelines during the Change Request implementation process to mitigate risks.
 Adhered to CSO (Chief Security Officer) rules and the governance process to ensure compliance and reduce potential security risks.
+
+Here’s how your points align with your company’s values:
+
+---
+
+**Mindset (Challenge, Drive, Empower):**
+- I consistently challenged myself by learning and mastering new technologies like Salesforce, taking ownership of both backend and frontend development. This proactive approach empowered me to deliver key features like Customer End Chat, Chat History, and Automated Disclosure.
+- The initiative to develop Python scripts for automating data extraction from DynamoDB and improving processes demonstrates my drive to continuously innovate and enhance efficiency.
+
+**Respect (Harnessing Power of Diversity and Inclusion):**
+- By collaborating with various stakeholders (BAs, POs, RTB team), I leveraged diverse perspectives to deliver well-rounded solutions. My interactions with different teams, especially within Salesforce, helped me learn from others and contributed to building a culture of respect and inclusion.
+  
+**Integrity (Honesty, Courage, Transparency, Fairness):**
+- I have always adhered to proper guidelines during Change Request implementations, ensuring transparency and reducing risk. I followed the CSO rules and governance process diligently, operating with integrity and fairness throughout my work.
+  
+**Service (Empathy and Humility, Putting People and Business at the Center):**
+- By assisting and providing knowledge transfer (KT) sessions to new team members, I demonstrated empathy and a willingness to support the growth of others.
+- I also acted with humility in helping the team solve issues while consistently putting the needs of the business and customers at the center of my efforts, especially in addressing vulnerabilities and security concerns.
+
+**Excellence (High Standards):**
+- I set high standards for my work by following best practices in DevOps, such as fixing pipeline failures promptly, maintaining code quality, and ensuring optimal performance in the services I develop.
+- My work in remediating security vulnerabilities (Prisma, Nessus, Nexus, Veracode) reflects a commitment to excellence in ensuring the security and stability of our systems.
+
+**Stewardship (Sustainability, Leaving Things Better):**
+- By developing reusable and generic Python scripts that were adopted by the RTB team, I contributed to creating sustainable solutions that improved operational efficiency and left the processes better than I found them.
+- I consistently focus on improving processes and following governance to ensure sustainable development and security practices.
+
+---
+
+This analysis connects your achievements to the core values of **Mindset**, **Respect**, **Integrity**, **Service**, **Excellence**, and **Stewardship**.
