@@ -1,0 +1,42 @@
+Certainly! Here's the self-review rewritten in bullet points:
+
+---
+
+**Learning and Development:**
+- Gained hands-on experience with the Salesforce tech stack.
+- Developed key features such as Customer End Chat, Chat History, and Automated Disclosure.
+- Took ownership of both backend and frontend services, working from scratch on several features.
+- Learned the Salesforce governance process and participated in the end-to-end development lifecycle: collaborating with BAs/POs, creating user stories, developing backend services, Akana onboarding, integration, testing, and deployment.
+- Boosted my technical and process knowledge significantly during this period.
+
+**Agile Practices:**
+- Actively participated in story grooming and sprint planning.
+- Maintained a healthy backlog, updated story progress, and ensured necessary documentation and reference links were provided.
+  
+**Innovation and Automation:**
+- Developed Python scripts to extract and update data from DynamoDB when persistent chat changes were rolled back due to issues with contact IDs.
+- Automated the process, reducing manual efforts and processing large data volumes within minutes.
+- Created generic scripts, which were adopted by the RTB team for data extraction and updating, further improving efficiency.
+
+**People - Culture & Talent:**
+- Contributed to improving team culture by participating in team activities and assisting team members with issues.
+- Provided KT sessions and helped new team members with challenges, while also learning from others.
+- Gained valuable knowledge of the Salesforce governance process and built new professional relationships within the team.
+
+**Maintaining Gold on DSInsight:**
+- Increased overall code coverage for services under Non-Voice.
+- Followed best practices such as removing unnecessary branches and triggering pipelines within 24 hours of code commits.
+- Actively resolved pipeline failures and ensured continuous improvement in DevOps practices.
+
+**Tech and Ops:**
+- Worked closely with POs and BAs to align work with business requirements.
+- Took initiative to lead various tasks, which boosted my confidence and improved my management skills.
+
+**Appreciation:**
+- Received appreciation for developing Python scripts that significantly reduced manual efforts in processing large production data, with the scripts being adopted by the RTB team.
+- Recognized for contributions to the Chat History feature.
+- Received further recognition for developing the edit template feature.
+
+---
+
+This structure presents your points clearly and concisely, highlighting your accomplishments and contributions.
