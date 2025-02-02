@@ -1,9 +1,33 @@
 <template>
     <lightning-card title="Progress Bar with Steps" icon-name="custom:custom63">
         <lightning-progress-indicator current-step={currentStep} type="base" variant="base">
-            <lightning-progress-step label="Challenge sent to Customer" value="1"></lightning-progress-step>
-            <lightning-progress-step label="Challenge answers received from Customer" value="2"></lightning-progress-step>
-            <lightning-progress-step label="Challenge Verification Complete" value="3"></lightning-progress-step>
+            <lightning-progress-step label="Challenge sent to Customer" value="1" state={step1State}></lightning-progress-step>
+            <lightning-progress-step label="Challenge answers received from Customer" value="2" state={step2State}></lightning-progress-step>
+            <lightning-progress-step label="Challenge Verification Complete" value="3" state={step3State}></lightning-progress-step>
         </lightning-progress-indicator>
+
+        <div class="slds-m-top_medium">
+            <lightning-button label="Mark Step 2 as Failed" onclick={markStep2Failed}></lightning-button>
+            <lightning-button label="Mark Step 3 as Failed" onclick={markStep3Failed}></lightning-button>
+        </div>
     </lightning-card>
 </template>
+
+
+
+<!--     @track currentStep = '1'; // Default to the first step
+    @track step1State = 'completed'; // Step 1 is completed
+    @track step2State = ''; // Step 2 is not completed yet
+    @track step3State = ''; // Step 3 is not completed yet
+
+    // Method to mark Step 2 as failed
+    markStep2Failed() {
+        this.step2State = 'error'; // Set Step 2 state to error
+        this.currentStep = '2'; // Set current step to Step 2
+    }
+
+    // Method to mark Step 3 as failed
+    markStep3Failed() {
+        this.step3State = 'error'; // Set Step 3 state to error
+        this.currentStep = '3'; // Set current step to Step 3
+    } -->
