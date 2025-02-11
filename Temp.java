@@ -1,3 +1,6 @@
+log.info("Switching alias {} to new index {}", alias, newIndex);
+log.info("Deleting old indices for alias {}", alias);
+
 elasticsearch:
   index:
     alias: my_index_alias
