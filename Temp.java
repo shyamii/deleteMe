@@ -1,3 +1,7 @@
+GET _cat/indices/user-*?v&h=index,health,status,docs.count,store.size&format=txt
+
+GET _cat/indices/*?v&h=index,health,status,docs.count,store.size&format=txt
+
 GET _cat/indices?v&h=health,status,index,uuid,pri,rep,docs.count,docs.deleted,store.size,pri.store.size&s=index | grep -v '^\.'
 
 GET _cat/indices?v&h=index&format=json
