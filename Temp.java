@@ -1,187 +1,114 @@
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-@Component
-@ConfigurationProperties(prefix = "elasticsearch")
-public class ElasticsearchConfig {
-    private static final Logger logger = LoggerFactory.getLogger(ElasticsearchConfig.class);
-
-    private String aliasName;
-    private String currentIndexName;
-
-    public String getAliasName() {
-        return aliasName;
-    }
-
-    public void setAliasName(String aliasName) {
-        logger.info("Setting aliasName to: {}", aliasName);
-        this.aliasName = aliasName;
-    }
-
-    public String getCurrentIndexName() {
-        return currentIndexName;
-    }
-
-    public void setCurrentIndexName(String currentIndexName) {
-        logger.info("Setting currentIndexName to: {}", currentIndexName);
-        this.currentIndexName = currentIndexName;
-    }
-}
-
-
-
-import org.elasticsearch.client.Request;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.RestClient;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.stereotype.Service;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Map;
-import java.util.Set;
-
 @Service
-public class ElasticsearchService {
-    private static final Logger logger = LoggerFactory.getLogger(ElasticsearchService.class);
-
-    private final RestClient restClient;
-
-    public ElasticsearchService(RestClient restClient) {
-        this.restClient = restClient;
-    }
-
-    public String readIndexDefinition(String filePath) throws IOException {
-        logger.info("Reading index definition from file: {}", filePath);
-        ClassPathResource resource = new ClassPathResource(filePath);
-        byte[] bytes = Files.readAllBytes(Paths.get(resource.getURI()));
-        return new String(bytes, StandardCharsets.UTF_8);
-    }
-
-    public boolean aliasExists(String aliasName) throws IOException {
-        logger.info("Checking if alias exists: {}", aliasName);
-        Request request = new Request("HEAD", "/_alias/" + aliasName);
-        Response response = restClient.performRequest(request);
-        return response.getStatusLine().getStatusCode() == 200;
-    }
-
-    public String getCurrentIndexName(String aliasName) throws IOException {
-        logger.info("Getting current index name for alias: {}", aliasName);
-        Request request = new Request("GET", "/_alias/" + aliasName);
-        Response response = restClient.performRequest(request);
-        Map<String, Object> responseMap = JsonUtils.parseResponse(response);
-        Set<String> indices = responseMap.keySet();
-        return indices.stream().findFirst().orElse(null);
-    }
-
-    public void createIndex(String indexName, String indexDefinition) throws IOException {
-        logger.info("Creating index: {}", indexName);
-        Request request = new Request("PUT", "/" + indexName);
-        request.setJsonEntity(indexDefinition);
-        restClient.performRequest(request);
-    }
-
-    public void switchAlias(String aliasName, String oldIndexName, String newIndexName) throws IOException {
-        logger.info("Switching alias: {} from {} to {}", aliasName, oldIndexName, newIndexName);
-        String jsonBody = String.format(
-            "{\"actions\": [" +
-                "{\"remove\": {\"index\": \"%s\", \"alias\": \"%s\"}}," +
-                "{\"add\": {\"index\": \"%s\", \"alias\": \"%s\"}}" +
-            "]}",
-            oldIndexName, aliasName, newIndexName, aliasName
-        );
-
-        Request request = new Request("POST", "/_aliases");
-        request.setJsonEntity(jsonBody);
-        restClient.performRequest(request);
-    }
-
-    public void deleteIndex(String indexName) throws IOException {
-        logger.info("Deleting index: {}", indexName);
-        Request request = new Request("DELETE", "/" + indexName);
-        restClient.performRequest(request);
-    }
-}
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.elasticsearch.client.Response;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.Map;
-
-public class JsonUtils {
-    private static final Logger logger = LoggerFactory.getLogger(JsonUtils.class);
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    public static Map<String, Object> parseResponse(Response response) throws IOException {
-        logger.info("Parsing Elasticsearch response");
-        return mapper.readValue(response.getEntity().getContent(), Map.class);
-    }
-}
-
-
-        import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.core.IndexRequest;
-import co.elastic.clients.elasticsearch.core.IndexResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-
-@Component
-public class ElasticsearchWriter {
-    private static final Logger logger = LoggerFactory.getLogger(ElasticsearchWriter.class);
-
-    private final ElasticsearchClient client;
-    private final ElasticsearchConfig config;
+@Slf4j
+public class ElasticsearchIndexService {
 
     @Autowired
-    public ElasticsearchWriter(ElasticsearchClient client, ElasticsearchConfig config) {
-        this.client = client;
-        this.config = config;
+    private RestClient restClient;
+
+    public String createNewIndex() {
+        String newIndexName = "my_index_" + System.currentTimeMillis();
+        String requestBody = "{ \"settings\": { \"number_of_shards\": 1, \"number_of_replicas\": 1 } }";
+
+        try {
+            Request request = new Request("PUT", "/" + newIndexName);
+            request.setJsonEntity(requestBody);
+            Response response = restClient.performRequest(request);
+
+            if (response.getStatusLine().getStatusCode() == 200) {
+                log.info("Created new index: {}", newIndexName);
+                return newIndexName;
+            }
+        } catch (IOException e) {
+            log.error("Error creating new index: {}", newIndexName, e);
+        }
+        return null;
     }
 
-    public void writeData(String documentId, String jsonDocument) throws IOException {
-        logger.info("Writing document with ID: {} to index: {}", documentId, config.getCurrentIndexName());
-        IndexRequest<String> request = IndexRequest.of(b -> b
-            .index(config.getCurrentIndexName())
-            .id(documentId)
-            .document(jsonDocument)
-        );
+    public void switchAlias(String alias, String newIndexName) {
+        try {
+            String requestBody = "{ \"actions\": [ { \"remove\": { \"index\": \"*\", \"alias\": \"" + alias + "\" } },"
+                    + "{ \"add\": { \"index\": \"" + newIndexName + "\", \"alias\": \"" + alias + "\" } } ] }";
 
-        IndexResponse response = client.index(request);
-        logger.info("Indexed document with ID: {}", response.id());
+            Request request = new Request("POST", "/_aliases");
+            request.setJsonEntity(requestBody);
+            Response response = restClient.performRequest(request);
+
+            if (response.getStatusLine().getStatusCode() == 200) {
+                log.info("Alias switched to new index: {}", newIndexName);
+            }
+        } catch (IOException e) {
+            log.error("Error switching alias to new index: {}", newIndexName, e);
+        }
+    }
+
+    public void deleteOldIndices(String alias) {
+        try {
+            Request getAliasRequest = new Request("GET", "/_alias/" + alias);
+            Response getAliasResponse = restClient.performRequest(getAliasRequest);
+
+            String responseBody = EntityUtils.toString(getAliasResponse.getEntity());
+            Map<String, Object> aliasData = new ObjectMapper().readValue(responseBody, Map.class);
+
+            for (String oldIndex : aliasData.keySet()) {
+                if (!oldIndex.equals(alias)) {
+                    Request deleteRequest = new Request("DELETE", "/" + oldIndex);
+                    restClient.performRequest(deleteRequest);
+                    log.info("Deleted old index: {}", oldIndex);
+                }
+            }
+        } catch (IOException e) {
+            log.error("Error deleting old indices", e);
+        }
     }
 }
 
 
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
-import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
-import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.repeat.RepeatStatus;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+@Component
+@Slf4j
+public class ElasticsearchItemWriter implements ItemWriter<MyDocument> {
+
+    @Autowired
+    private RestClient restClient;
+
+    private String newIndexName;
+
+    public void setNewIndexName(String newIndexName) {
+        this.newIndexName = newIndexName;
+    }
+
+    @Override
+    public void write(List<? extends MyDocument> items) {
+        if (newIndexName == null) {
+            log.error("New index name is not set");
+            return;
+        }
+
+        try {
+            StringBuilder bulkRequest = new StringBuilder();
+            for (MyDocument doc : items) {
+                bulkRequest.append("{ \"index\": { \"_index\": \"").append(newIndexName).append("\" } }\n");
+                bulkRequest.append(new ObjectMapper().writeValueAsString(doc)).append("\n");
+            }
+
+            Request request = new Request("POST", "/_bulk");
+            request.setJsonEntity(bulkRequest.toString());
+            Response response = restClient.performRequest(request);
+
+            if (response.getStatusLine().getStatusCode() == 200) {
+                log.info("Saved {} documents to index {}", items.size(), newIndexName);
+            }
+        } catch (IOException e) {
+            log.error("Error writing documents to Elasticsearch", e);
+        }
+    }
+}
+
 
 @Configuration
 @EnableBatchProcessing
-public class BatchConfig {
-    private static final Logger logger = LoggerFactory.getLogger(BatchConfig.class);
+@Slf4j
+public class BatchJobConfig {
 
     @Autowired
     private JobBuilderFactory jobBuilderFactory;
@@ -190,34 +117,51 @@ public class BatchConfig {
     private StepBuilderFactory stepBuilderFactory;
 
     @Autowired
-    private ElasticsearchService elasticsearchService;
+    private ElasticsearchItemWriter elasticsearchItemWriter;
 
     @Autowired
-    private ElasticsearchConfig elasticsearchConfig;
+    private ElasticsearchIndexService indexService;
 
     @Bean
-    public Job dataMigrationJob() {
-        return jobBuilderFactory.get("dataMigrationJob")
-                .incrementer(new RunIdIncrementer())
-                .start(initializeAliasStep())
-                .next(createNewIndexStep())
-                .next(loadDataStep())
-                .next(switchAliasStep())
-                .next(deleteOldIndexStep())
+    public Job elasticsearchIndexJob() {
+        return jobBuilderFactory.get("elasticsearchIndexJob")
+                .start(indexStep())
+                .next(aliasUpdateStep())
+                .next(deleteOldIndicesStep())
                 .build();
     }
 
     @Bean
-    public Step initializeAliasStep() {
-        return stepBuilderFactory.get("initializeAliasStep")
+    public Step indexStep() {
+        return stepBuilderFactory.get("indexStep")
+                .<MyDocument, MyDocument>chunk(100)
+                .reader(myItemReader())
+                .processor(myItemProcessor())
+                .writer(elasticsearchItemWriter)
+                .listener(new StepExecutionListener() {
+                    @Override
+                    public void beforeStep(StepExecution stepExecution) {
+                        String newIndex = indexService.createNewIndex();
+                        if (newIndex != null) {
+                            elasticsearchItemWriter.setNewIndexName(newIndex);
+                            stepExecution.getExecutionContext().putString("newIndexName", newIndex);
+                        } else {
+                            throw new IllegalStateException("Failed to create new index");
+                        }
+                    }
+                })
+                .build();
+    }
+
+    @Bean
+    public Step aliasUpdateStep() {
+        return stepBuilderFactory.get("aliasUpdateStep")
                 .tasklet((contribution, chunkContext) -> {
-                    logger.info("Initializing alias");
-                    if (!elasticsearchService.aliasExists(elasticsearchConfig.getAliasName())) {
-                        String indexDefinition = elasticsearchService.readIndexDefinition("index.json");
-                        String initialIndexName = "my_index_v1";
-                        elasticsearchService.createIndex(initialIndexName, indexDefinition);
-                        elasticsearchService.switchAlias(elasticsearchConfig.getAliasName(), null, initialIndexName);
-                        elasticsearchConfig.setCurrentIndexName(initialIndexName);
+                    String newIndex = (String) chunkContext.getStepContext().getJobExecutionContext().get("newIndexName");
+                    if (newIndex != null) {
+                        indexService.switchAlias("my_index_alias", newIndex);
+                    } else {
+                        log.error("New index name is null, skipping alias update");
                     }
                     return RepeatStatus.FINISHED;
                 })
@@ -225,60 +169,30 @@ public class BatchConfig {
     }
 
     @Bean
-    public Step createNewIndexStep() {
-        return stepBuilderFactory.get("createNewIndexStep")
+    public Step deleteOldIndicesStep() {
+        return stepBuilderFactory.get("deleteOldIndicesStep")
                 .tasklet((contribution, chunkContext) -> {
-                    logger.info("Creating new index");
-                    String currentIndexName = elasticsearchConfig.getCurrentIndexName();
-                    int currentVersion = Integer.parseInt(currentIndexName.split("_v")[1]);
-                    String newIndexName = "my_index_v" + (currentVersion + 1);
-
-                    String indexDefinition = elasticsearchService.readIndexDefinition("index.json");
-                    elasticsearchService.createIndex(newIndexName, indexDefinition);
-                    elasticsearchConfig.setCurrentIndexName(newIndexName);
+                    indexService.deleteOldIndices("my_index_alias");
                     return RepeatStatus.FINISHED;
                 })
                 .build();
     }
 
     @Bean
-    public Step loadDataStep(ElasticsearchWriter writer) {
-        return stepBuilderFactory.get("loadDataStep")
-                .tasklet((contribution, chunkContext) -> {
-                    logger.info("Loading data into new index");
-                    writer.writeData("1", "{\"field1\": \"value1\", \"field2\": \"value2\"}");
-                    return RepeatStatus.FINISHED;
-                })
+    public ItemReader<MyDocument> myItemReader() {
+        return new JpaPagingItemReaderBuilder<MyDocument>()
+                .name("myItemReader")
+                .entityManagerFactory(entityManagerFactory)
+                .queryString("SELECT d FROM MyDocument d")
+                .pageSize(100)
                 .build();
     }
 
     @Bean
-    public Step switchAliasStep() {
-        return stepBuilderFactory.get("switchAliasStep")
-                .tasklet((contribution, chunkContext) -> {
-                    logger.info("Switching alias to new index");
-                    String currentIndexName = elasticsearchConfig.getCurrentIndexName();
-                    String newIndexName = "my_index_v" + (Integer.parseInt(currentIndexName.split("_v")[1]) + 1);
-
-                    elasticsearchService.switchAlias(elasticsearchConfig.getAliasName(), currentIndexName, newIndexName);
-                    elasticsearchConfig.setCurrentIndexName(newIndexName);
-                    return RepeatStatus.FINISHED;
-                })
-                .build();
-    }
-
-    @Bean
-    public Step deleteOldIndexStep() {
-        return stepBuilderFactory.get("deleteOldIndexStep")
-                .tasklet((contribution, chunkContext) -> {
-                    logger.info("Deleting old index");
-                    String currentIndexName = elasticsearchConfig.getCurrentIndexName();
-                    String oldIndexName = "my_index_v" + (Integer.parseInt(currentIndexName.split("_v")[1]) - 1);
-
-                    elasticsearchService.deleteIndex(oldIndexName);
-                    return RepeatStatus.FINISHED;
-                })
-                .build();
+    public ItemProcessor<MyDocument, MyDocument> myItemProcessor() {
+        return item -> {
+            log.info("Processing document: {}", item.getId());
+            return item;
+        };
     }
 }
-            
