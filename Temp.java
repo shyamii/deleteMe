@@ -15,6 +15,34 @@ public void deleteOldIndices(String alias) {
     }
 }
 
+private String getActiveIndexForAlias(String alias) throws IOException {
+    Request request = new Request("GET", "/_alias/" + alias);
+    Response response = restClient.performRequest(request);
+    String responseBody = EntityUtils.toString(response.getEntity());
+
+    JsonNode jsonNode = new ObjectMapper().readTree(responseBody);
+    Iterator<String> indexNames = jsonNode.fieldNames();
+
+    if (indexNames.hasNext()) {
+        return indexNames.next(); // Active index currently assigned to the alias
+    }
+    return null;
+}
+
+private List<String> getAllIndicesMatchingAlias(String alias) throws IOException {
+    Request request = new Request("GET", "/_cat/indices/" + alias + "*?format=json");
+    Response response = restClient.performRequest(request);
+    String responseBody = EntityUtils.toString(response.getEntity());
+
+    JsonNode jsonNode = new ObjectMapper().readTree(responseBody);
+    List<String> indices = new ArrayList<>();
+
+    for (JsonNode node : jsonNode) {
+        indices.add(node.get("index").asText());
+    }
+    return indices;
+}
+
 
 log.info("Switching alias {} to new index {}", alias, newIndex);
 log.info("Deleting old indices for alias {}", alias);
