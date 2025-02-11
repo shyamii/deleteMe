@@ -1,3 +1,21 @@
+public void deleteOldIndices(String alias) {
+    try {
+        String activeIndex = getActiveIndexForAlias(alias);
+        List<String> allIndices = getAllIndicesMatchingAlias(alias);
+
+        for (String oldIndex : allIndices) {
+            if (!oldIndex.equals(activeIndex)) { // Ensure the active index is not deleted
+                Request deleteRequest = new Request("DELETE", "/" + oldIndex);
+                restClient.performRequest(deleteRequest);
+                log.info("Deleted old index: {}", oldIndex);
+            }
+        }
+    } catch (Exception e) {
+        log.error("Error deleting old indices: {}", e.getMessage(), e);
+    }
+}
+
+
 log.info("Switching alias {} to new index {}", alias, newIndex);
 log.info("Deleting old indices for alias {}", alias);
 
