@@ -1,3 +1,10 @@
+elasticsearch:
+  index:
+    alias: my_index_alias
+
+    @Value("${elasticsearch.index.alias}")
+    private String indexAlias;
+
 @Service
 @Slf4j
 public class ElasticsearchIndexService {
