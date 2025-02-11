@@ -1,3 +1,6 @@
+GET _cat/indices?v&h=index&format=json
+
+
 public void deleteOldIndices(String alias) {
     try {
         String activeIndex = getActiveIndexForAlias(alias);
