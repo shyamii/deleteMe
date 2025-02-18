@@ -1,3 +1,57 @@
+private void deleteIndex(String indexName) throws IOException {
+    Request deleteRequest = new Request("DELETE", "/" + indexName);
+    restClient.performRequest(deleteRequest);
+    log.info("Deleted old index: {}", indexName);
+}
+
+
+private List<String> getAllIndicesMatchingPattern(String pattern) throws IOException {
+    Request request = new Request("GET", "/_cat/indices/" + pattern + "?format=json");
+    Response response = restClient.performRequest(request);
+    String responseBody = EntityUtils.toString(response.getEntity());
+
+    JsonNode jsonNode = new ObjectMapper().readTree(responseBody);
+    List<String> indices = new ArrayList<>();
+
+    for (JsonNode node : jsonNode) {
+        indices.add(node.get("index").asText());
+    }
+    return indices;
+}
+
+
+private String getActiveIndexForAlias(String alias) throws IOException {
+    Request request = new Request("GET", "/_alias/" + alias);
+    Response response = restClient.performRequest(request);
+    String responseBody = EntityUtils.toString(response.getEntity());
+
+    JsonNode jsonNode = new ObjectMapper().readTree(responseBody);
+    Iterator<String> indexNames = jsonNode.fieldNames();
+
+    if (indexNames.hasNext()) {
+        return indexNames.next(); // The index currently assigned to the alias
+    }
+    return null;
+}
+
+
+public void deleteUnusedIndices(String alias) {
+    try {
+        String activeIndex = getActiveIndexForAlias(alias);
+        List<String> allIndices = getAllIndicesMatchingPattern("my_index-*");
+
+        for (String index : allIndices) {
+            if (!index.equals(activeIndex)) {
+                deleteIndex(index);
+            }
+        }
+    } catch (Exception e) {
+        log.error("Error deleting old indices: {}", e.getMessage(), e);
+    }
+}
+
+
+
 GET _cat/indices/user-*?v&h=index,health,status,docs.count,store.size&format=txt
 
 GET _cat/indices/*?v&h=index,health,status,docs.count,store.size&format=txt
