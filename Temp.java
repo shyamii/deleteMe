@@ -1,3 +1,5 @@
+String currentDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
 private void deleteIndex(String indexName) throws IOException {
     Request deleteRequest = new Request("DELETE", "/" + indexName);
     restClient.performRequest(deleteRequest);
