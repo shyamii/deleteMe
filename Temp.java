@@ -1,3 +1,27 @@
+@Component
+public class ElasticsearchIndexInitializer implements InitializingBean {
+
+    private final ElasticsearchOperations elasticsearchOperations;
+
+    public ElasticsearchIndexInitializer(ElasticsearchOperations elasticsearchOperations) {
+        this.elasticsearchOperations = elasticsearchOperations;
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        IndexOperations indexOps = elasticsearchOperations.indexOps(MyEntity.class);
+        if (!indexOps.exists()) {
+            boolean created = indexOps.create();
+            if (created) {
+                indexOps.putMapping(indexOps.createMapping(MyEntity.class));
+                System.out.println("Pre-created index for MyEntity.");
+            }
+        }
+    }
+}
+
+
+
 String currentDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
 private void deleteIndex(String indexName) throws IOException {
