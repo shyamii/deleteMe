@@ -1,24 +1,122 @@
-@Component
-public class ElasticsearchIndexInitializer implements InitializingBean {
+package com.example.elasticsearch;
 
-    private final ElasticsearchOperations elasticsearchOperations;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.http.util.EntityUtils;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.Response;
+import org.elasticsearch.client.RestClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
-    public ElasticsearchIndexInitializer(ElasticsearchOperations elasticsearchOperations) {
-        this.elasticsearchOperations = elasticsearchOperations;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+public class ElasticSearchOrderDetailsRestRepository {
+
+    // Use the alias (or index name) you use in @Document
+    private static final String INDEX_NAME = "order_details_alias";
+
+    private final RestClient restClient;
+    private final ObjectMapper objectMapper;
+
+    @Autowired
+    public ElasticSearchOrderDetailsRestRepository(RestClient restClient) {
+        this.restClient = restClient;
+        this.objectMapper = new ObjectMapper();
     }
 
-    @Override
-    public void afterPropertiesSet() throws Exception {
-        IndexOperations indexOps = elasticsearchOperations.indexOps(MyEntity.class);
-        if (!indexOps.exists()) {
-            boolean created = indexOps.create();
-            if (created) {
-                indexOps.putMapping(indexOps.createMapping(MyEntity.class));
-                System.out.println("Pre-created index for MyEntity.");
+    public List<ElasticSearchOrderDetail> findByServiceOrderId(String serviceOrderId) throws IOException {
+        String queryJson = "{\n" +
+                "  \"query\": {\n" +
+                "    \"term\": { \"serviceOrderId\": \"" + serviceOrderId + "\" }\n" +
+                "  }\n" +
+                "}";
+        return executeSearch(queryJson);
+    }
+
+    public List<ElasticSearchOrderDetail> findByNspeId(String nspeId) throws IOException {
+        String queryJson = "{\n" +
+                "  \"query\": {\n" +
+                "    \"term\": { \"nspeId\": \"" + nspeId + "\" }\n" +
+                "  }\n" +
+                "}";
+        return executeSearch(queryJson);
+    }
+
+    public List<ElasticSearchOrderDetail> findByPremisysQuoteId(String premisysQuoteId) throws IOException {
+        String queryJson = "{\n" +
+                "  \"query\": {\n" +
+                "    \"term\": { \"premisysQuoteId\": \"" + premisysQuoteId + "\" }\n" +
+                "  }\n" +
+                "}";
+        return executeSearch(queryJson);
+    }
+
+    public List<ElasticSearchOrderDetail> findByOrderRequestId(String orderRequestId) throws IOException {
+        String queryJson = "{\n" +
+                "  \"query\": {\n" +
+                "    \"term\": { \"orderRequestId\": \"" + orderRequestId + "\" }\n" +
+                "  }\n" +
+                "}";
+        return executeSearch(queryJson);
+    }
+
+    public List<ElasticSearchOrderDetail> findByTinAndOrderId(String tin, String orderId) throws IOException {
+        String queryJson = "{\n" +
+                "  \"query\": {\n" +
+                "    \"bool\": {\n" +
+                "      \"must\": [\n" +
+                "        { \"term\": { \"tin\": \"" + tin + "\" } },\n" +
+                "        { \"term\": { \"orderId\": \"" + orderId + "\" } }\n" +
+                "      ]\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+        return executeSearch(queryJson);
+    }
+
+    public List<ElasticSearchOrderDetail> findByTin(String tin) throws IOException {
+        String queryJson = "{\n" +
+                "  \"query\": {\n" +
+                "    \"term\": { \"tin\": \"" + tin + "\" }\n" +
+                "  }\n" +
+                "}";
+        return executeSearch(queryJson);
+    }
+
+    /**
+     * Executes a search query against the specified index using the given JSON query.
+     *
+     * @param queryJson the JSON DSL query string.
+     * @return list of matching ElasticSearchOrderDetail objects.
+     * @throws IOException if the request fails.
+     */
+    private List<ElasticSearchOrderDetail> executeSearch(String queryJson) throws IOException {
+        Request request = new Request("GET", "/" + INDEX_NAME + "/_search");
+        request.setJsonEntity(queryJson);
+
+        Response response = restClient.performRequest(request);
+        String responseBody = EntityUtils.toString(response.getEntity());
+
+        // Parse the JSON response
+        JsonNode root = objectMapper.readTree(responseBody);
+        JsonNode hitsNode = root.path("hits").path("hits");
+
+        List<ElasticSearchOrderDetail> results = new ArrayList<>();
+        if (hitsNode.isArray()) {
+            for (JsonNode hit : hitsNode) {
+                JsonNode sourceNode = hit.path("_source");
+                ElasticSearchOrderDetail detail = objectMapper.treeToValue(sourceNode, ElasticSearchOrderDetail.class);
+                results.add(detail);
             }
         }
+        return results;
     }
 }
+
 
 
 
