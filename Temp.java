@@ -16,7 +16,7 @@ import java.util.List;
 @Service
 public class ElasticSearchOrderDetailsRestRepository {
 
-    // Use the alias (or index name) you use in @Document
+    // Use the alias (or index name) that your documents are stored in.
     private static final String INDEX_NAME = "order_details_alias";
 
     private final RestClient restClient;
@@ -26,6 +26,23 @@ public class ElasticSearchOrderDetailsRestRepository {
     public ElasticSearchOrderDetailsRestRepository(RestClient restClient) {
         this.restClient = restClient;
         this.objectMapper = new ObjectMapper();
+    }
+
+    public ElasticSearchOrderDetail findById(String id) throws IOException {
+        Request request = new Request("GET", "/" + INDEX_NAME + "/_doc/" + id);
+        Response response = restClient.performRequest(request);
+
+        // If not found, you might receive a 404.
+        if (response.getStatusLine().getStatusCode() == 404) {
+            return null;
+        }
+        String responseBody = EntityUtils.toString(response.getEntity());
+        JsonNode root = objectMapper.readTree(responseBody);
+        JsonNode sourceNode = root.path("_source");
+        if (sourceNode.isMissingNode()) {
+            return null;
+        }
+        return objectMapper.treeToValue(sourceNode, ElasticSearchOrderDetail.class);
     }
 
     public List<ElasticSearchOrderDetail> findByServiceOrderId(String serviceOrderId) throws IOException {
@@ -116,6 +133,7 @@ public class ElasticSearchOrderDetailsRestRepository {
         return results;
     }
 }
+
 
 
 
