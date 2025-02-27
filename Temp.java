@@ -1,4 +1,4 @@
-
+ELASTICSEARCH_INDEX_DELETE_ENABLED
 elasticsearch.index.delete.enabled=true
 
     if (!isDeleteEnabled) {
