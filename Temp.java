@@ -6,6 +6,157 @@ import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+public class ElasticSearchOrderDetailsRestRepository {
+
+    private static final Logger log = LoggerFactory.getLogger(ElasticSearchOrderDetailsRestRepository.class);
+
+    // Use the alias or index name that your documents are stored in.
+    private static final String INDEX_NAME = "order_details_alias";
+
+    private final RestClient restClient;
+    private final ObjectMapper objectMapper;
+
+    public ElasticSearchOrderDetailsRestRepository(RestClient restClient) {
+        this.restClient = restClient;
+        this.objectMapper = new ObjectMapper();
+    }
+
+    public ElasticSearchOrderDetail findById(String id) {
+        try {
+            Request request = new Request("GET", "/" + INDEX_NAME + "/_doc/" + id);
+            Response response = restClient.performRequest(request);
+            int statusCode = response.getStatusLine().getStatusCode();
+            if (statusCode == 404) {
+                log.info("Document with id {} not found in index {}", id, INDEX_NAME);
+                return null;
+            }
+            String responseBody = EntityUtils.toString(response.getEntity());
+            JsonNode root = objectMapper.readTree(responseBody);
+            JsonNode sourceNode = root.path("_source");
+            if (sourceNode.isMissingNode()) {
+                log.warn("No _source found for document id {}", id);
+                return null;
+            }
+            return objectMapper.treeToValue(sourceNode, ElasticSearchOrderDetail.class);
+        } catch (IOException e) {
+            log.error("Error occurred while fetching document by id {}: {}", id, e.getMessage());
+            return null;
+        }
+    }
+
+    public List<ElasticSearchOrderDetail> findByServiceOrderId(String serviceOrderId) {
+        String queryJson = "{\n" +
+                "  \"query\": {\n" +
+                "    \"term\": { \"serviceOrderId\": \"" + serviceOrderId + "\" }\n" +
+                "  }\n" +
+                "}";
+        return executeSearch(queryJson, "findByServiceOrderId", serviceOrderId);
+    }
+
+    public List<ElasticSearchOrderDetail> findByNspeId(String nspeId) {
+        String queryJson = "{\n" +
+                "  \"query\": {\n" +
+                "    \"term\": { \"nspeId\": \"" + nspeId + "\" }\n" +
+                "  }\n" +
+                "}";
+        return executeSearch(queryJson, "findByNspeId", nspeId);
+    }
+
+    public List<ElasticSearchOrderDetail> findByPremisysQuoteId(String premisysQuoteId) {
+        String queryJson = "{\n" +
+                "  \"query\": {\n" +
+                "    \"term\": { \"premisysQuoteId\": \"" + premisysQuoteId + "\" }\n" +
+                "  }\n" +
+                "}";
+        return executeSearch(queryJson, "findByPremisysQuoteId", premisysQuoteId);
+    }
+
+    public List<ElasticSearchOrderDetail> findByOrderRequestId(String orderRequestId) {
+        String queryJson = "{\n" +
+                "  \"query\": {\n" +
+                "    \"term\": { \"orderRequestId\": \"" + orderRequestId + "\" }\n" +
+                "  }\n" +
+                "}";
+        return executeSearch(queryJson, "findByOrderRequestId", orderRequestId);
+    }
+
+    public List<ElasticSearchOrderDetail> findByTinAndOrderId(String tin, String orderId) {
+        String queryJson = "{\n" +
+                "  \"query\": {\n" +
+                "    \"bool\": {\n" +
+                "      \"must\": [\n" +
+                "        { \"term\": { \"tin\": \"" + tin + "\" } },\n" +
+                "        { \"term\": { \"orderId\": \"" + orderId + "\" } }\n" +
+                "      ]\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+        return executeSearch(queryJson, "findByTinAndOrderId", tin + ", " + orderId);
+    }
+
+    public List<ElasticSearchOrderDetail> findByTin(String tin) {
+        String queryJson = "{\n" +
+                "  \"query\": {\n" +
+                "    \"term\": { \"tin\": \"" + tin + "\" }\n" +
+                "  }\n" +
+                "}";
+        return executeSearch(queryJson, "findByTin", tin);
+    }
+
+    /**
+     * Executes a search query against the specified index using the given JSON query.
+     * This method handles exceptions and logs errors instead of throwing.
+     *
+     * @param queryJson  the JSON DSL query string.
+     * @param methodName the name of the calling method for logging purposes.
+     * @param criteria   the search criteria value used.
+     * @return list of matching ElasticSearchOrderDetail objects, or an empty list if an error occurs.
+     */
+    private List<ElasticSearchOrderDetail> executeSearch(String queryJson, String methodName, String criteria) {
+        List<ElasticSearchOrderDetail> results = new ArrayList<>();
+        try {
+            log.info("Executing {} with criteria: {}", methodName, criteria);
+            Request request = new Request("GET", "/" + INDEX_NAME + "/_search");
+            request.setJsonEntity(queryJson);
+
+            Response response = restClient.performRequest(request);
+            String responseBody = EntityUtils.toString(response.getEntity());
+
+            // Parse the JSON response
+            JsonNode root = objectMapper.readTree(responseBody);
+            JsonNode hitsNode = root.path("hits").path("hits");
+
+            if (hitsNode.isArray()) {
+                for (JsonNode hit : hitsNode) {
+                    JsonNode sourceNode = hit.path("_source");
+                    ElasticSearchOrderDetail detail = objectMapper.treeToValue(sourceNode, ElasticSearchOrderDetail.class);
+                    results.add(detail);
+                }
+            }
+            log.info("{} returned {} results", methodName, results.size());
+        } catch (IOException e) {
+            log.error("Error executing {} with criteria {}: {}", methodName, criteria, e.getMessage());
+        }
+        return results;
+    }
+}
+package com.example.elasticsearch;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.http.util.EntityUtils;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.Response;
+import org.elasticsearch.client.RestClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
