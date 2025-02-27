@@ -1,3 +1,13 @@
+
+elasticsearch.index.delete.enabled=true
+
+    if (!isDeleteEnabled) {
+            log.info("Index deletion is disabled. Skipping deletion for index: {}", oldIndex);
+            return;
+        }
+@Value("${elasticsearch.index.delete.enabled:false}")
+    private boolean isDeleteEnabled;
+
 package com.example.elasticsearch;
 
 import com.fasterxml.jackson.databind.JsonNode;
