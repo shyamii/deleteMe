@@ -1,3 +1,121 @@
+import org.apache.http.util.EntityUtils;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.Response;
+import org.elasticsearch.client.RestClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Repository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public class ElasticSearchOrderDetailsRepository {
+
+    private static final Logger log = LoggerFactory.getLogger(ElasticSearchOrderDetailsRepository.class);
+    private final RestClient restClient;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final String INDEX_NAME = "order_details_alias"; // Replace with actual alias
+
+    public ElasticSearchOrderDetailsRepository(RestClient restClient) {
+        this.restClient = restClient;
+    }
+
+    private List<ElasticSearchOrderDetail> executeSearch(String jsonQuery) {
+        try {
+            Request request = new Request("POST", "/" + INDEX_NAME + "/_search");
+            request.setJsonEntity(jsonQuery);
+
+            Response response = restClient.performRequest(request);
+            String responseBody = EntityUtils.toString(response.getEntity());
+
+            JsonNode hits = objectMapper.readTree(responseBody).path("hits").path("hits");
+            return objectMapper.convertValue(hits, objectMapper.getTypeFactory().constructCollectionType(List.class, ElasticSearchOrderDetail.class));
+
+        } catch (Exception e) {
+            log.error("Error executing Elasticsearch query: {}", e.getMessage(), e);
+            return Collections.emptyList();
+        }
+    }
+
+    public List<ElasticSearchOrderDetail> findByServiceOrderId(String serviceOrderId) {
+        String query = String.format("""
+            {
+                "query": { "term": { "serviceOrderId.keyword": "%s" } }
+            }
+        """, serviceOrderId);
+        return executeSearch(query);
+    }
+
+    public List<ElasticSearchOrderDetail> findByNspeId(String nspeId) {
+        String query = String.format("""
+            {
+                "query": { "term": { "nspeId.keyword": "%s" } }
+            }
+        """, nspeId);
+        return executeSearch(query);
+    }
+
+    public List<ElasticSearchOrderDetail> findByPremisysQuoteId(String premisysQuoteId) {
+        String query = String.format("""
+            {
+                "query": { "term": { "premisysQuoteId.keyword": "%s" } }
+            }
+        """, premisysQuoteId);
+        return executeSearch(query);
+    }
+
+    public List<ElasticSearchOrderDetail> findByOrderRequestId(String orderRequestId) {
+        String query = String.format("""
+            {
+                "query": { "term": { "orderRequestId.keyword": "%s" } }
+            }
+        """, orderRequestId);
+        return executeSearch(query);
+    }
+
+    public List<ElasticSearchOrderDetail> findByTinAndOrderId(String tin, String orderId) {
+        String query = String.format("""
+            {
+                "query": {
+                    "bool": {
+                        "must": [
+                            { "term": { "tin.keyword": "%s" } },
+                            { "term": { "orderId.keyword": "%s" } }
+                        ]
+                    }
+                }
+            }
+        """, tin, orderId);
+        return executeSearch(query);
+    }
+
+    public List<ElasticSearchOrderDetail> findByTin(String tin) {
+        String query = String.format("""
+            {
+                "query": { "term": { "tin.keyword": "%s" } }
+            }
+        """, tin);
+        return executeSearch(query);
+    }
+
+    public Optional<ElasticSearchOrderDetail> findById(String id) {
+        String query = String.format("""
+            {
+                "query": { "term": { "_id": "%s" } }
+            }
+        """, id);
+        List<ElasticSearchOrderDetail> results = executeSearch(query);
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
+}
+
+
+
+
+
 ELASTICSEARCH_INDEX_DELETE_ENABLED
 elasticsearch.index.delete.enabled=true
 
