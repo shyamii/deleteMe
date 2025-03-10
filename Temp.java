@@ -1,7 +1,6 @@
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.apache.hc.core5.ssl.TrustAllStrategy;
@@ -24,14 +23,18 @@ public class RestClientConfig {
                 .loadTrustMaterial(TrustAllStrategy.INSTANCE)
                 .build();
 
-        // 2. Configure Hostname Verifier (bypass for testing)
+        // 2. Configure SSL Socket Factory with protocols and hostname verifier
         HostnameVerifier hostnameVerifier = (hostname, session) -> true;
+        SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(
+                sslContext,
+                new String[]{"TLSv1.3", "TLSv1.2"}, // Protocols
+                null, // Default cipher suites
+                hostnameVerifier
+        );
 
         // 3. Build HttpClient with TlsStrategy
         CloseableHttpClient httpClient = HttpClients.custom()
-                .setSSLContext(sslContext)
-                .setSSLHostnameVerifier(hostnameVerifier)
-                .setTlsVersions("TLSv1.3", "TLSv1.2") // Protocols
+                .setTlsStrategy(sslSocketFactory) // Directly set TlsStrategy
                 .evictExpiredConnections()
                 .build();
 
