@@ -1,8 +1,8 @@
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.ssl.TlsStrategy;
-import org.apache.hc.client5.http.ssl.TlsStrategyBuilder;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.apache.hc.core5.ssl.TrustAllStrategy;
 import org.springframework.context.annotation.Bean;
@@ -27,20 +27,25 @@ public class RestClientConfig {
         // 2. Configure Hostname Verifier (bypass for testing)
         HostnameVerifier hostnameVerifier = (hostname, session) -> true;
 
-        // 3. Build TlsStrategy
-        TlsStrategy tlsStrategy = TlsStrategyBuilder.create()
-                .setSslContext(sslContext)
-                .setTlsVersions("TLSv1.3", "TLSv1.2")
-                .setHostnameVerifier(hostnameVerifier)
-                .build();
+        // 3. Build SSLConnectionSocketFactory (non-deprecated approach)
+        SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(
+                sslContext,
+                new String[]{"TLSv1.3", "TLSv1.2"}, // Protocols
+                null, // Default cipher suites
+                hostnameVerifier
+        );
 
-        // 4. Build HttpClient with TlsStrategy
+        // 4. Create Connection Manager with SSL settings
+        PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+        connectionManager.setDefaultSSLSocketFactory(sslSocketFactory);
+
+        // 5. Build HttpClient
         CloseableHttpClient httpClient = HttpClients.custom()
-                .setTlsStrategy(tlsStrategy) // <-- Key configuration
+                .setConnectionManager(connectionManager)
                 .evictExpiredConnections()
                 .build();
 
-        // 5. Create Request Factory
+        // 6. Create Request Factory
         ClientHttpRequestFactory requestFactory = 
             new HttpComponentsClientHttpRequestFactory(httpClient);
 
