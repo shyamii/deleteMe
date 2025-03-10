@@ -1,6 +1,65 @@
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
+import org.apache.hc.core5.ssl.SSLContextBuilder;
+import org.apache.hc.core5.ssl.TrustAllStrategy;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+
+@Configuration
+public class RestClientConfig {
+
+    @Bean
+    public RestClient restClient() throws Exception {
+        // 1. Build SSLContext (INSECURE for testing)
+        SSLContext sslContext = SSLContextBuilder.create()
+                .loadTrustMaterial(TrustAllStrategy.INSTANCE)
+                .build();
+
+        // 2. Configure SSL Socket Factory
+        SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(
+                sslContext,
+                new String[]{"TLSv1.3", "TLSv1.2"}, // Protocols
+                null, // Default cipher suites
+                (hostname, session) -> true // Bypass hostname verification
+        );
+
+        // 3. Build Connection Manager with SSL settings
+        PoolingHttpClientConnectionManagerBuilder connectionManagerBuilder = 
+            PoolingHttpClientConnectionManagerBuilder.create();
+        connectionManagerBuilder.setSSLSocketFactory(sslSocketFactory);
+
+        // 4. Build HttpClient
+        CloseableHttpClient httpClient = HttpClients.custom()
+                .setConnectionManager(connectionManagerBuilder.build())
+                .evictExpiredConnections()
+                .build();
+
+        // 5. Create Request Factory
+        ClientHttpRequestFactory requestFactory =
+                new HttpComponentsClientHttpRequestFactory(httpClient);
+
+        return RestClient.builder()
+                .requestFactory(requestFactory)
+                .build();
+    }
+}
+
+
+
+
+
+import org.apache.hc.client5.http.classic.HttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.socket.ConnectionSocketFactory;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
