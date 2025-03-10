@@ -1,8 +1,8 @@
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.config.TlsConfig;
-import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
+import org.apache.hc.client5.http.ssl.TlsStrategy;
+import org.apache.hc.client5.http.ssl.TlsStrategyBuilder;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.apache.hc.core5.ssl.TrustAllStrategy;
 import org.springframework.context.annotation.Bean;
@@ -13,15 +13,12 @@ import org.springframework.web.client.RestClient;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 
 @Configuration
 public class RestClientConfig {
 
     @Bean
-    public RestClient restClient() throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+    public RestClient restClient() throws Exception {
         // 1. Build SSLContext (INSECURE for testing)
         SSLContext sslContext = SSLContextBuilder.create()
                 .loadTrustMaterial(TrustAllStrategy.INSTANCE)
@@ -30,29 +27,28 @@ public class RestClientConfig {
         // 2. Configure Hostname Verifier (bypass for testing)
         HostnameVerifier hostnameVerifier = (hostname, session) -> true;
 
-        // 3. Configure TLS versions
-        TlsConfig tlsConfig = TlsConfig.custom()
-                .setSupportedProtocols("TLSv1.3", "TLSv1.2")
+        // 3. Build TlsStrategy with protocols and SSL settings
+        TlsStrategy tlsStrategy = TlsStrategyBuilder.create()
+                .setSslContext(sslContext)
+                .setTlsVersions("TLSv1.3", "TLSv1.2")
+                .setHostnameVerifier(hostnameVerifier)
                 .build();
 
-        // 4. Build HttpClient with SSL settings
+        // 4. Build HttpClient with TlsStrategy
         CloseableHttpClient httpClient = HttpClients.custom()
-                .setSslContext(sslContext) // Set SSLContext directly
-                .setSslHostnameVerifier(hostnameVerifier) // Set HostnameVerifier
-                .setTlsConfig(tlsConfig) // Set TLS protocols
+                .setTlsStrategy(tlsStrategy) // Key configuration
                 .evictExpiredConnections()
                 .build();
 
         // 5. Create Request Factory
-        ClientHttpRequestFactory requestFactory =
-                new HttpComponentsClientHttpRequestFactory(httpClient);
+        ClientHttpRequestFactory requestFactory = 
+            new HttpComponentsClientHttpRequestFactory(httpClient);
 
         return RestClient.builder()
                 .requestFactory(requestFactory)
                 .build();
     }
 }
-
 
 
 import org.apache.http.util.EntityUtils;
