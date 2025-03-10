@@ -1,7 +1,6 @@
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.ssl.TlsStrategy;
 import org.apache.hc.client5.http.ssl.TlsStrategyBuilder;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
@@ -35,18 +34,13 @@ public class RestClientConfig {
                 .setHostnameVerifier(hostnameVerifier)
                 .build();
 
-        // 4. Build Connection Manager with TlsStrategy
-        PoolingHttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
-                .setTlsStrategy(tlsStrategy)
-                .build();
-
-        // 5. Build HttpClient
+        // 4. Build HttpClient with TlsStrategy
         CloseableHttpClient httpClient = HttpClients.custom()
-                .setConnectionManager(connectionManager)
+                .setTlsStrategy(tlsStrategy) // <-- Key configuration
                 .evictExpiredConnections()
                 .build();
 
-        // 6. Create Request Factory
+        // 5. Create Request Factory
         ClientHttpRequestFactory requestFactory = 
             new HttpComponentsClientHttpRequestFactory(httpClient);
 
