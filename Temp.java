@@ -1,3 +1,83 @@
+private void cleanUpChunk(List<ElasticSearchOrderDetail> chunk) {
+    // Create a bulk request builder.
+    BulkRequest.Builder br = new BulkRequest.Builder();
+
+    for (ElasticSearchOrderDetail item : chunk) {
+        String orderSource = item.getOrderSource();
+
+        if ("UOTM".equalsIgnoreCase(orderSource)) {
+            // UOTM case: Use findRecordsByServiceOrderId.
+            List<Hit<ElasticSearchOrderDetail>> matchedRecords = findRecordsByServiceOrderId(item);
+
+            // Only process if there are more than one matching records.
+            if (!matchedRecords.isEmpty() && matchedRecords.size() > 1) {
+                for (Hit<ElasticSearchOrderDetail> hit : matchedRecords) {
+                    ElasticSearchOrderDetail elasticSearchOrderDetail = hit.source();
+                    updateElasticBean(item, elasticSearchOrderDetail);
+                    logger.info("Creating update request with Id: {}", elasticSearchOrderDetail.getId());
+                    br.operations(op -> op.update(upd -> upd.index(indexName)
+                                                              .id(elasticSearchOrderDetail.getId())
+                                                              .action(a -> a.doc(elasticSearchOrderDetail))));
+                }
+                // Delete the original item.
+                logger.info("Deleting original UOTM item with Id: {}", item.getId());
+                br.operations(op -> op.delete(del -> del.index(indexName).id(item.getId())));
+            } else {
+                logger.info("UOTM item with Id: {} does not have more than one matching record. No action taken.", item.getId());
+            }
+        } else if ("LEGACY".equalsIgnoreCase(orderSource) || "VRD".equalsIgnoreCase(orderSource)) {
+            // LEGACY/VRD case: Use findRecordsByTin.
+            List<Hit<ElasticSearchOrderDetail>> matchedRecords = findRecordsByTin(item);
+
+            if (matchedRecords.isEmpty()) {
+                logger.info("Creating index request with Id: {}", item.getId());
+                br.operations(op -> op.index(idx -> idx.index(indexName)
+                                                        .id(item.getId())
+                                                        .document(item)));
+            } else {
+                for (Hit<ElasticSearchOrderDetail> hit : matchedRecords) {
+                    ElasticSearchOrderDetail elasticSearchOrderDetail = hit.source();
+                    updateElasticBean(item, elasticSearchOrderDetail);
+                    logger.info("Creating update request with Id: {}", elasticSearchOrderDetail.getId());
+                    br.operations(op -> op.update(upd -> upd.index(indexName)
+                                                              .id(elasticSearchOrderDetail.getId())
+                                                              .action(a -> a.doc(elasticSearchOrderDetail))));
+                }
+            }
+        } else {
+            logger.warn("Skipping item with unknown orderSource: {}", orderSource);
+        }
+    }
+
+    // Execute bulk operations.
+    try {
+        BulkResponse bulkResponse = client.bulk(br.build());
+        if (bulkResponse.errors()) {
+            for (BulkResponseItem bulkItem : bulkResponse.items()) {
+                if (bulkItem.error() != null) {
+                    logger.error("Error in bulk operation: {} for a item: {}",
+                                 bulkItem.error().reason(), bulkItem.index());
+                }
+            }
+        } else {
+            logger.info("Bulk operation completed successfully!");
+        }
+    } catch (Exception e) {
+        logger.error("Error: {}", e);
+    }
+
+    logger.info("Cleanup completed for chunk.");
+}
+
+
+
+
+
+
+
+
+
+
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
