@@ -1,13 +1,16 @@
-package com.example.config;
+package com.example.demo;
 
 import javax.net.ssl.SSLContext;
 
-import org.apache.hc.client5.http.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
-import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
-import org.apache.hc.core5.ssl.SSLContextBuilder;
-import org.apache.hc.core5.ssl.TrustStrategy;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.io.HttpClientConnectionManager;
+import org.apache.hc.client5.http.ssl.DefaultClientTlsStrategy;
+import org.apache.hc.client5.http.ssl.TlsSocketStrategy;
+import org.apache.hc.client5.http.ssl.TrustAllStrategy;
+import org.apache.hc.core5.ssl.SSLContexts;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
@@ -16,31 +19,26 @@ import org.springframework.web.client.RestTemplate;
 @Configuration
 public class RestTemplateConfig {
 
-    @Bean
-    public RestTemplate restTemplate() throws Exception {
-        // Create a TrustStrategy that trusts all certificates
-        TrustStrategy trustStrategy = (chain, authType) -> true;
+	@Bean
+	public RestTemplate restTemplate() throws Exception {
 
-        // Build an SSLContext with the custom TrustStrategy
-        SSLContext sslContext = SSLContextBuilder.create()
-                .loadTrustMaterial(null, trustStrategy)
-                .build();
+		SSLContext sslContext = SSLContexts.custom().loadTrustMaterial(TrustAllStrategy.INSTANCE).build();
 
-        // Create a connection manager using the SSLContext
-        PoolingHttpClientConnectionManager connectionManager =
-                new PoolingHttpClientConnectionManager();
-        
-        // Build the CloseableHttpClient using the connection manager
-        CloseableHttpClient httpClient = HttpClients.custom()
-                .setConnectionManager(connectionManager)
-                .setSSLContext(sslContext) // Correct method in HttpClient 5
-                .setSSLHostnameVerifier(new DefaultHostnameVerifier()) // Avoid deprecated methods
-                .build();
+		// Create a TlsSocketStrategy from the SSLContext using the default strategy.
+		TlsSocketStrategy tlsStrategy = new DefaultClientTlsStrategy(sslContext);
 
-        // Create a request factory using the custom HttpClient
-        HttpComponentsClientHttpRequestFactory requestFactory =
-                new HttpComponentsClientHttpRequestFactory(httpClient);
+		// Build the connection manager with TLS configuration.
+		HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+				.setTlsSocketStrategy(tlsStrategy).build();
 
-        return new RestTemplate(requestFactory);
-    }
+		// Build the HttpClient with the connection manager.
+		CloseableHttpClient httpClient = HttpClientBuilder.create()
+				.setConnectionManager((PoolingHttpClientConnectionManager) connectionManager).evictExpiredConnections()
+				.build();
+
+		// Create the request factory and RestTemplate.
+		HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
+		
+		return new RestTemplate(requestFactory);
+	}
 }
