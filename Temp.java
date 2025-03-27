@@ -1,3 +1,9 @@
+
+public static String escapeElasticSearchSpecialChars(String input) {
+    return input.replaceAll("([+\\-!(){}\\[\\]^\"~*?:\\\\/])", "\\\\$1");
+}
+
+
 private void cleanUpChunk(List<ElasticSearchOrderDetail> chunk) {
     // Create a bulk request builder.
     BulkRequest.Builder br = new BulkRequest.Builder();
