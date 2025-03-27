@@ -1,98 +1,110 @@
 import co.elastic.clients.elasticsearch._types.query_dsl.*;
-import co.elastic.clients.elasticsearch.core.SearchRequest;
-import co.elastic.clients.elasticsearch.core.SearchResponse;
-import co.elastic.clients.elasticsearch.core.search.Highlight;
-import co.elastic.clients.elasticsearch.core.search.HighlightField;
-import co.elastic.clients.elasticsearch.core.search.HighlighterType;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
-
+import co.elastic.clients.elasticsearch.core.*;
+import co.elastic.clients.elasticsearch.core.search.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.*;
-import java.util.stream.Collectors;
 
-@Slf4j
-public class ElasticSearchQueryHandler {
+public class ElasticSearchService {
+    private static final Logger log = LoggerFactory.getLogger(ElasticSearchService.class);
+    private final ElasticsearchClient esClient;
 
-    public ResponseData searchElasticsearch(String searchIdd, String matchType, ElasticSearchClient esClient) {
-        log.info("Search ID (Before escaping): {}", searchIdd);
+    public ElasticSearchService(ElasticsearchClient esClient) {
+        this.esClient = esClient;
+    }
+
+    public ResponseData searchOrders(String searchIdd, String matchType) {
+        log.info("searchId (before escaping): {}", searchIdd);
         String searchId = escapeElasticSearchSpecialChars(searchIdd);
-        log.info("Search ID (After escaping): {}", searchId);
+        log.info("searchId (after escaping): {}", searchId);
 
-        int minimumShouldMatch = 0;
         ResponseData responseData = new ResponseData();
 
-        // Highlight configuration
-        Map<String, HighlightField> highlights = EZStatusUtil.getGlobalSearchMap()
-                .keySet()
-                .stream()
-                .flatMap(field -> Arrays.stream(new String[]{field, field + ".keyword"}))
-                .collect(Collectors.toMap(field -> field, field -> new HighlightField.Builder().build()));
-
-        Highlight highlight = Highlight.of(h -> h.type(HighlighterType.Unified).fields(highlights).preTags("").postTags(""));
-
-        // Fields for filtering
-        List<String> filterList = EZStatusUtil.getGlobalSearchMap().keySet()
-                .stream()
-                .map(field -> field + ".keyword")
-                .collect(Collectors.toList());
-
-        List<String> wildcardfilterList = new ArrayList<>(EZStatusUtil.getGlobalSearchMap().keySet());
-
-        BoolQuery.Builder boolQueryBuilder = new BoolQuery.Builder();
-        SearchRequest.Builder searchRequestBuilder = new SearchRequest.Builder()
-                .index("order_details_alias")
-                .size(1000);
-
-        if ("exact".equals(matchType)) {
-            boolQueryBuilder.should(QueryBuilders
-                    .multiMatch(m -> m.query(searchId.toUpperCase()).fields(filterList)));
-            minimumShouldMatch++;
-        } else {
-            boolQueryBuilder.should(QueryBuilders
-                    .multiMatch(m -> m.query(searchId.toUpperCase()).fields(filterList)))
-                    .should(QueryBuilders.queryString(q -> q.fields(wildcardfilterList).query(searchId + "*").defaultOperator(Operator.And)));
-            minimumShouldMatch++;
+        // Configure highlighting
+        Map<String, HighlightField> highlights = new HashMap<>();
+        Set<String> highLightData = EZStatusUtil.getGlobalSearchMap().keySet();
+        for (String highlightField : highLightData) {
+            highlights.put(highlightField + ".keyword", new HighlightField.Builder().build());
+            highlights.put(highlightField, new HighlightField.Builder().build());
         }
 
-        // Aggregations
-        EZStatusUtil.getAggregatedDataMap().forEach((key, value) ->
-                searchRequestBuilder.aggregations(key, Aggregation.of(b -> b.terms(t -> t.field(value + ".keyword").size(2000))))
+        Highlight highlight = Highlight.of(h -> h
+            .type(HighlighterType.Unified)
+            .fields(highlights)
+            .preTags("")
+            .postTags("")
         );
 
-        // Build final search request
-        searchRequestBuilder.query(boolQueryBuilder.minimumShouldMatch(String.valueOf(minimumShouldMatch)).build()._toQuery()).highlight(highlight);
+        // Prepare fields for exact and wildcard queries
+        List<String> exactMatchFields = new ArrayList<>();
+        List<String> wildcardFields = new ArrayList<>();
 
-        // Log full JSON query before execution
-        logQuery(searchRequestBuilder);
+        for (Map.Entry<String, String> searchData : EZStatusUtil.getGlobalSearchMap().entrySet()) {
+            exactMatchFields.add(searchData.getKey() + ".keyword");
+            wildcardFields.add(searchData.getKey());
+        }
 
-        // Execute search
+        SearchResponse<ElasticSearchOrderDetail> response;
+        BoolQuery.Builder boolQueryBuilder = new BoolQuery.Builder();
+        SearchRequest.Builder searchRequestBuilder = new SearchRequest.Builder()
+            .index("order_details_alias")
+            .size(1000);
+
+        // 1. Exact Match (keyword fields)
+        if ("exact".equalsIgnoreCase(matchType)) {
+            boolQueryBuilder.should(QueryBuilders.multiMatch(m -> m
+                .query(searchId)
+                .fields(exactMatchFields)
+            ));
+        } 
+        // 2. Wildcard Match (text fields)
+        else {
+            // Multi-match on exact fields
+            boolQueryBuilder.should(QueryBuilders.multiMatch(m -> m
+                .query(searchId)
+                .fields(exactMatchFields)
+            ));
+
+            // Wildcard queries on text fields
+            for (String field : wildcardFields) {
+                boolQueryBuilder.should(QueryBuilders.wildcard(w -> w
+                    .field(field)
+                    .value(searchId + "*")
+                    .caseInsensitive(true) // Case-insensitive matching
+                ));
+            }
+        }
+
+        // Add aggregations
+        for (Map.Entry<String, String> aggregatedDataMap : EZStatusUtil.getAggregatedDataMap().entrySet()) {
+            searchRequestBuilder.aggregations(aggregatedDataMap.getKey(), Aggregation.of(a -> a
+                .terms(t -> t.field(aggregatedDataMap.getValue() + ".keyword").size(2000))
+            );
+        }
+
         try {
-            SearchResponse<ElasticSearchOrderDetail> response = esClient.search(searchRequestBuilder.build(), ElasticSearchOrderDetail.class);
+            searchRequestBuilder
+                .query(q -> q.bool(boolQueryBuilder
+                    .minimumShouldMatch("1") // Only 1 should clause needs to match
+                    .build()
+                ))
+                .highlight(highlight);
+
+            response = esClient.search(searchRequestBuilder.build(), ElasticSearchOrderDetail.class);
             responseData.setSearchResponse(response);
         } catch (Exception e) {
-            log.error("Error while searching in Elasticsearch: {}", e.getMessage(), e);
+            log.error("Elasticsearch error: {}", e.getMessage(), e);
+            if (e.getCause() != null) {
+                log.error("Root cause: {}", e.getCause().getMessage());
+            }
         }
 
         return responseData;
     }
 
-    private void logQuery(SearchRequest.Builder searchRequestBuilder) {
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            String jsonQuery = objectMapper.writeValueAsString(searchRequestBuilder.build());
-            log.info("Generated Elasticsearch Query: {}", jsonQuery);
-        } catch (JsonProcessingException e) {
-            log.error("Error converting query to JSON", e);
-        }
-    }
-
+    // Only escape Elasticsearch-reserved characters (excluding '/')
     private static String escapeElasticSearchSpecialChars(String input) {
-        return input.replaceAll("(?<!\\\\)/", "\\\\/"); // Escapes `/` only once
-    }
-
-        private static String escapeElasticSearchSpecialChars(String input) {
         if (input == null) return "";
-        return input.replaceAll("([+\\-!(){}\\[\\]^\"~*?:\\\\/])", "\\\\$1");
+        return input.replaceAll("([+\\-!(){}\\[\\]^\"~*?:\\\\])", "\\\\$1");
     }
 }
