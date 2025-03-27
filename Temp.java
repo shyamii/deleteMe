@@ -90,4 +90,9 @@ public class ElasticSearchQueryHandler {
     private static String escapeElasticSearchSpecialChars(String input) {
         return input.replaceAll("(?<!\\\\)/", "\\\\/"); // Escapes `/` only once
     }
+
+        private static String escapeElasticSearchSpecialChars(String input) {
+        if (input == null) return "";
+        return input.replaceAll("([+\\-!(){}\\[\\]^\"~*?:\\\\/])", "\\\\$1");
+    }
 }
