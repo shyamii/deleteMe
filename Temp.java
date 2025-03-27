@@ -1,7 +1,109 @@
 
-public static String escapeElasticSearchSpecialChars(String input) {
-    return input.replaceAll("([+\\-!(){}\\[\\]^\"~*?:\\\\/])", "\\\\$1");
+import co.elastic.clients.elasticsearch._types.query_dsl.*;
+import co.elastic.clients.elasticsearch.core.*;
+import co.elastic.clients.elasticsearch.core.search.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.util.*;
+
+public class ElasticSearchService {
+    private static final Logger log = LoggerFactory.getLogger(ElasticSearchService.class);
+    private final ElasticsearchClient esClient;
+
+    public ElasticSearchService(ElasticsearchClient esClient) {
+        this.esClient = esClient;
+    }
+
+    public ResponseData searchOrders(String searchIdd, String matchType) {
+        log.info("searchId (before escaping): {}", searchIdd);
+        String searchId = escapeElasticSearchSpecialChars(searchIdd);
+        log.info("searchId (after escaping): {}", searchId);
+
+        int minimumShouldMatch = 0;
+        ResponseData responseData = new ResponseData();
+
+        Map<String, HighlightField> highlights = new HashMap<>();
+        Set<String> highLightData = EZStatusUtil.getGlobalSearchMap().keySet();
+        for (String highlightField : highLightData) {
+            highlights.put(highlightField + ".keyword", new HighlightField.Builder().build());
+            highlights.put(highlightField, new HighlightField.Builder().build());
+        }
+
+        Highlight highlight = Highlight.of(h -> h
+            .type(HighlighterType.Unified)
+            .fields(highlights)
+            .preTags("")
+            .postTags("")
+        );
+
+        List<String> filterList = new ArrayList<>();
+        List<String> wildcardFilterList = new ArrayList<>();
+
+        for (Map.Entry<String, String> searchData : EZStatusUtil.getGlobalSearchMap().entrySet()) {
+            filterList.add(searchData.getKey() + ".keyword"); // Ensuring exact match
+            wildcardFilterList.add(searchData.getKey());
+        }
+
+        SearchResponse<ElasticSearchOrderDetail> response = null;
+        BoolQuery.Builder boolQueryBuilder = new BoolQuery.Builder();
+        SearchRequest.Builder searchRequestBuilder = new SearchRequest.Builder()
+            .index("order_details_alias")
+            .size(1000);
+
+        if ("exact".equalsIgnoreCase(matchType)) {
+            Query query = QueryBuilders.bool(bool -> bool.should(
+                should -> should.multiMatch(multiMatch -> multiMatch
+                    .query(searchId.toUpperCase())
+                    .fields(filterList)
+                )
+            ));
+            boolQueryBuilder.should(query);
+            minimumShouldMatch++;
+        } else {
+            Query query = QueryBuilders.bool(bool -> bool
+                .should(should -> should.multiMatch(multiMatch -> multiMatch
+                    .query(searchId.toUpperCase())
+                    .fields(filterList)
+                ))
+                .should(should -> should.queryString(queryString -> queryString
+                    .fields(wildcardFilterList)
+                    .query(searchId + "*") // Escaped query
+                    .defaultOperator(Operator.And)
+                ))
+            );
+            boolQueryBuilder.should(query);
+            minimumShouldMatch++;
+        }
+
+        // Adding aggregations
+        for (Map.Entry<String, String> aggregatedDataMap : EZStatusUtil.getAggregatedDataMap().entrySet()) {
+            searchRequestBuilder.aggregations(aggregatedDataMap.getKey(), Aggregation.of(b -> b
+                .terms(t -> t.field(aggregatedDataMap.getValue() + ".keyword").size(2000))
+            ));
+        }
+
+        try {
+            searchRequestBuilder.query(boolQueryBuilder
+                .minimumShouldMatch(String.valueOf(minimumShouldMatch))
+                .build()
+                ._toQuery()
+            ).highlight(highlight);
+
+            response = esClient.search(searchRequestBuilder.build(), ElasticSearchOrderDetail.class);
+            responseData.setSearchResponse(response);
+        } catch (Exception e) {
+            log.error("Error while searching in elastic data: {}", e.getMessage());
+        }
+
+        return responseData;
+    }
+
+    private static String escapeElasticSearchSpecialChars(String input) {
+        if (input == null) return "";
+        return input.replaceAll("([+\\-!(){}\\[\\]^\"~*?:\\\\/])", "\\\\$1");
+    }
 }
+
 
 
 private void cleanUpChunk(List<ElasticSearchOrderDetail> chunk) {
