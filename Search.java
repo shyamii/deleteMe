@@ -1,38 +1,14 @@
-if ("exact".equals(matchType)) {
-    Query query = QueryBuilders.bool(bool -> bool.should(
-            should -> should.multiMatch(multiMatch -> multiMatch
-                    .query(searchId.toUpperCase())
-                    .fields(filterList)
-            )
-    ));
-    boolQueryBuilder.should(query);
-    minimumShouldMatch++;
-} else {
-    String escapedSearchId = QueryParser.escape(searchId);
-    
-    // Option A: Use a prefix query on the non-analyzed field
-    Query prefixQuery = QueryBuilders.prefix(p -> p
-            .field("yourField.keyword") // make sure this field exists
-            .value(escapedSearchId));
-    
-    // Option B: Use your combination of multiMatch and queryString
-    Query multiMatchQuery = QueryBuilders.multiMatch(m -> m
-            .query(searchId.toUpperCase())
-            .fields(filterList));
-    Query queryStringQuery = QueryBuilders.queryString(qs -> qs
-            .fields(wildcardfilterList)
-            .query(escapedSearchId + "*")
-            .defaultOperator(Operator.And));
-    
-    Query combinedQuery = QueryBuilders.bool(bool -> bool
-            .should(multiMatchQuery)
-            .should(queryStringQuery)
-            .should(prefixQuery)  // Optionally add prefix query
-    );
-    
-    boolQueryBuilder.should(combinedQuery);
-    minimumShouldMatch++;
+GET my_index/_search
+{
+  "query": {
+    "script_score": {
+      "script": {
+        "source": "for (def entry : params._source.entrySet()) { if (entry.getValue().toString().matches('.*[^a-zA-Z0-9].*')) return 1; } return 0;"
+      }
+    }
+  }
 }
+
 
 
 
