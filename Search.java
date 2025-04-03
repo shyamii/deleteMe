@@ -1,13 +1,7 @@
-GET my_index/_search
-{
-  "query": {
-    "script_score": {
-      "script": {
-        "source": "for (def entry : params._source.entrySet()) { if (entry.getValue().toString().matches('.*[^a-zA-Z0-9].*')) return 1; } return 0;"
-      }
-    }
-  }
-}
+boolQueryBuilder.mustNot(mustNot -> mustNot
+        .term(term -> term.field("federalFlag.keyword").value("FEDERAL")))
+        .should(should -> should
+            .bool(b -> b.mustNot(m -> m.exists(e -> e.field("federalFlag")))));
 
 
 
