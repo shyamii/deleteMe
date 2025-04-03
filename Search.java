@@ -1,7 +1,37 @@
-boolQueryBuilder.mustNot(mustNot -> mustNot
-        .term(term -> term.field("federalFlag.keyword").value("FEDERAL")))
-        .should(should -> should
-            .bool(b -> b.mustNot(m -> m.exists(e -> e.field("federalFlag")))));
+PUT your_index_name
+{
+  "settings": {
+    "analysis": {
+      "tokenizer": {
+        "special_char_tokenizer": {
+          "type": "pattern",
+          "pattern": "[/\\-_,]+"  // Splits on /, -, _, and ,
+        }
+      },
+      "analyzer": {
+        "circuitId_analyzer": {
+          "type": "custom",
+          "tokenizer": "special_char_tokenizer"
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "circuitId": {
+        "type": "text",
+        "analyzer": "circuitId_analyzer"
+      },
+      "normal_keyword_field": {
+        "type": "keyword"
+      },
+      "another_keyword_field": {
+        "type": "keyword"
+      }
+    }
+  }
+}
+
 
 
 
