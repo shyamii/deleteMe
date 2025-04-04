@@ -76,18 +76,21 @@ public class GlobalSearchRepository {
             if ("RESTRICTED".equalsIgnoreCase(federalAccessStatus)) {
                 boolQuery.must(q -> q.term(t -> t.field("federalAccess").value("true")));
             }
-            if ("FEDERAL".equalsIgnoreCase(federalAccessStatus)) {
-    boolQuery.filter(q -> q.bool(b -> b.should(Arrays.asList(
-        s -> s.term(t -> t.field("federalAccess").value("federal")),
-        s -> s.term(t -> t.field("federalAccess").value("general")),
-        s -> s.bool(bb -> bb.mustNot(mn -> mn.exists(e -> e.field("federalAccess"))))
+            import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
+
+if ("FEDERAL".equalsIgnoreCase(federalAccessStatus)) {
+    boolQuery.filter(f -> f.bool(b -> b.should(Arrays.asList(
+        QueryBuilders.term(t -> t.field("federalAccess").value("federal")),
+        QueryBuilders.term(t -> t.field("federalAccess").value("general")),
+        QueryBuilders.bool(bb -> bb.mustNot(mn -> mn.exists(e -> e.field("federalAccess"))))
     ))));
 } else if ("GENERAL".equalsIgnoreCase(federalAccessStatus)) {
-    boolQuery.filter(q -> q.bool(b -> b.should(Arrays.asList(
-        s -> s.term(t -> t.field("federalAccess").value("general")),
-        s -> s.bool(bb -> bb.mustNot(mn -> mn.exists(e -> e.field("federalAccess"))))
+    boolQuery.filter(f -> f.bool(b -> b.should(Arrays.asList(
+        QueryBuilders.term(t -> t.field("federalAccess").value("general")),
+        QueryBuilders.bool(bb -> bb.mustNot(mn -> mn.exists(e -> e.field("federalAccess"))))
     ))));
 }
+
 
 
             if ("true".equalsIgnoreCase(isGsamCheckRequired) && gsamSensitivity != null && !gsamSensitivity.isEmpty()) {
