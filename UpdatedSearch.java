@@ -140,11 +140,17 @@ public class GlobalSearchRepository {
     }
 
     private void applyListFilter(BoolQuery.Builder boolQuery, String fieldName, List<String> values) {
-        if (values != null && !values.isEmpty()) {
-            boolQuery.filter(f -> f.terms(t -> t.field(fieldName)
-                    .terms(tf -> tf.value(values.stream()
-                            .map(v -> builder -> builder.stringValue(v))
-                            .collect(Collectors.toList())))));
-        }
+    if (values != null && !values.isEmpty()) {
+        log.debug("Applying filter on field: {} with values: {}", fieldName, values);
+        boolQuery.filter(f -> f.terms(t -> t
+            .field(fieldName)
+            .terms(tf -> tf.value(
+                values.stream()
+                    .map(FieldValue::of)
+                    .collect(Collectors.toList())
+            ))
+        ));
     }
+}
+
 }
