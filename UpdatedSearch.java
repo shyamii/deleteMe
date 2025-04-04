@@ -76,10 +76,24 @@ public class GlobalSearchRepository {
             if ("RESTRICTED".equalsIgnoreCase(federalAccessStatus)) {
                 boolQuery.must(q -> q.term(t -> t.field("federalAccess").value("true")));
             }
-            if ("true".equalsIgnoreCase(isGsamCheckRequired)) {
-                boolQuery.filter(q -> q.terms(t -> t.field("gsamSensitivity")
-                        .terms(tqf -> tqf.value(v -> v.stringValues(Arrays.asList("1", "6", "8"))))));
-            }
+            if ("true".equalsIgnoreCase(isGsamCheckRequired) && gsamSensitivity != null && !gsamSensitivity.isEmpty()) {
+    List<String> values = Arrays.stream(gsamSensitivity.split("[,|^]"))
+                                .map(String::trim)
+                                .filter(v -> !v.isEmpty())
+                                .collect(Collectors.toList());
+
+    if (!values.isEmpty()) {
+        boolQuery.filter(q -> q.terms(t -> t
+            .field("gsamSensitivity")
+            .terms(tf -> tf.value(
+                values.stream()
+                      .map(JsonData::of)
+                      .collect(Collectors.toList())
+            ))
+        ));
+    }
+}
+
 
             // 4. Highlighting setup
             Highlight highlight = Highlight.of(h -> h.fields("taskName",
