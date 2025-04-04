@@ -1,3 +1,15 @@
+List<String> fieldsToSearch = Arrays.asList("taskName", "orderId", "centerName", "queueName");
+
+for (String field : fieldsToSearch) {
+    boolQuery.should(s -> s.term(t -> t
+            .field(field + ".keyword")
+            .value(searchId)));
+    boolQuery.should(s -> s.match(m -> m
+            .field(field)
+            .query(searchId)));
+}
+boolQuery.minimumShouldMatch("1");
+
 import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
 
 if ("FEDERAL".equalsIgnoreCase(federalAccessStatus)) {
