@@ -6,7 +6,6 @@ import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermsQueryField;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermsQuery;
 import co.elastic.clients.elasticsearch._types.Highlight;
 import co.elastic.clients.elasticsearch._types.HighlightField;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
@@ -21,11 +20,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import com.yourpackage.model.GlobalSearchRequest;
+import com.yourpackage.model.GlobalSearchReqFilter;
 import com.yourpackage.model.DateRangeFilter;
 import com.yourpackage.model.ResponseData;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 @Repository
 public class GlobalSearchRepository {
@@ -41,14 +43,19 @@ public class GlobalSearchRepository {
         try {
             BoolQuery.Builder boolQuery = new BoolQuery.Builder();
 
-            // 1. String filters
-            List<String> stringFields = Arrays.asList("fulfillmentStatus", "crStatus", "centerName",
-                    "source", "workType", "queueName", "orderActivity", "taskName", "productType");
-            globalSearchRequest.getFilters().forEach((field, values) -> {
-                if (stringFields.contains(field) && values != null && !values.isEmpty()) {
-                    boolQuery.filter(q -> q.terms(t -> t.field(field).terms(TermsQueryField.of(tf -> tf.value(v -> v.stringValues(values))))));
-                }
-            });
+            // 1. String filters (from GlobalSearchReqFilter)
+            GlobalSearchReqFilter filters = globalSearchRequest.getFilters();
+            if (filters != null) {
+                applyListFilter(boolQuery, "fulfillmentStatus", filters.getFulfillmentStatus());
+                applyListFilter(boolQuery, "crStatus", filters.getCrStatus());
+                applyListFilter(boolQuery, "centerName", filters.getCenterName());
+                applyListFilter(boolQuery, "source", filters.getSource());
+                applyListFilter(boolQuery, "workType", filters.getWorkType());
+                applyListFilter(boolQuery, "queueName", filters.getQueueName());
+                applyListFilter(boolQuery, "orderActivity", filters.getOrderActivity());
+                applyListFilter(boolQuery, "taskName", filters.getTaskName());
+                applyListFilter(boolQuery, "productType", filters.getProductType());
+            }
 
             // 2. Date filters
             List<String> dateFields = Arrays.asList("dueDate", "orderSubmitDate", "orderCreationDate");
@@ -129,6 +136,15 @@ public class GlobalSearchRepository {
         } catch (IOException e) {
             log.error("Error while performing global search", e);
             return new ResponseData();
+        }
+    }
+
+    private void applyListFilter(BoolQuery.Builder boolQuery, String fieldName, List<String> values) {
+        if (values != null && !values.isEmpty()) {
+            boolQuery.filter(f -> f.terms(t -> t.field(fieldName)
+                    .terms(tf -> tf.value(values.stream()
+                            .map(v -> builder -> builder.stringValue(v))
+                            .collect(Collectors.toList())))));
         }
     }
 }
