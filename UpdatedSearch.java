@@ -1,127 +1,134 @@
-@Override
-public ResponseData getGlobalSearchData(String gsamSensitivity,
-        String isGsamCheckRequired, String federalAccessStatus, String searchId,
-        GlobalSearchRequest globalSearchRequest, String matchType) {
+package com.yourpackage.repository;
 
-    log.info("Executing global search - searchId: {}, matchType: {}, federalAccessStatus: {}, gsamSensitivity: {}",
-            searchId, matchType, federalAccessStatus, gsamSensitivity);
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermsQueryField;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermsQuery;
+import co.elastic.clients.elasticsearch._types.Highlight;
+import co.elastic.clients.elasticsearch._types.HighlightField;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
+import co.elastic.clients.elasticsearch._types.aggregations.AggregationBuilders;
+import co.elastic.clients.elasticsearch._types.aggregations.TermsAggregation;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
 
-    long startTime = System.currentTimeMillis();
+import com.yourpackage.model.GlobalSearchRequest;
+import com.yourpackage.model.DateRangeFilter;
+import com.yourpackage.model.ResponseData;
 
-    BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+import java.io.IOException;
+import java.util.*;
 
-    // 1. String filters
-    if (globalSearchRequest.getFilters() != null) {
-        Map<String, String> filters = globalSearchRequest.getFilters();
-        String[] stringFields = {"fulfillmentStatus", "crStatus", "centerName", "source",
-                                 "workType", "queueName", "orderActivity", "taskName", "productType"};
-        for (String field : stringFields) {
-            String value = filters.get(field);
-            if (value != null && !value.isEmpty()) {
-                log.debug("Adding string filter: {} = {}", field, value);
-                boolQuery.must(QueryBuilders.termQuery(field, value));
-            }
-        }
-    }
+@Repository
+public class GlobalSearchRepository {
 
-    // 2. Date filters
-    if (globalSearchRequest.getDates() != null) {
-        Map<String, DateRangeFilter> dateFilters = globalSearchRequest.getDates();
-        String[] dateFields = {"dueDate", "orderSubmitDate", "orderCreationDate"};
-        for (String dateField : dateFields) {
-            DateRangeFilter range = dateFilters.get(dateField);
-            if (range != null) {
-                RangeQueryBuilder rangeQuery = QueryBuilders.rangeQuery(dateField);
-                if (range.getStartDate() != null) {
-                    rangeQuery.gte(range.getStartDate());
+    private static final Logger log = LoggerFactory.getLogger(GlobalSearchRepository.class);
+
+    @Autowired
+    private ElasticsearchClient elasticsearchClient;
+
+    public ResponseData getGlobalSearchData(String gsamSensitivity, String isGsamCheckRequired,
+                                            String federalAccessStatus, String searchId,
+                                            GlobalSearchRequest globalSearchRequest, String matchType) {
+        try {
+            BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+
+            // 1. String filters
+            List<String> stringFields = Arrays.asList("fulfillmentStatus", "crStatus", "centerName",
+                    "source", "workType", "queueName", "orderActivity", "taskName", "productType");
+            globalSearchRequest.getFilters().forEach((field, values) -> {
+                if (stringFields.contains(field) && values != null && !values.isEmpty()) {
+                    boolQuery.filter(q -> q.terms(t -> t.field(field).terms(TermsQueryField.of(tf -> tf.value(v -> v.stringValues(values))))));
                 }
-                if (range.getEndDate() != null) {
-                    rangeQuery.lte(range.getEndDate());
+            });
+
+            // 2. Date filters
+            List<String> dateFields = Arrays.asList("dueDate", "orderSubmitDate", "orderCreationDate");
+            globalSearchRequest.getDates().forEach((field, range) -> {
+                if (dateFields.contains(field) && range != null) {
+                    RangeQuery.Builder rangeQuery = new RangeQuery.Builder().field(field);
+                    if (range.getStartDate() != null) {
+                        rangeQuery.gte(range.getStartDate());
+                    }
+                    if (range.getEndDate() != null) {
+                        rangeQuery.lte(range.getEndDate());
+                    }
+                    boolQuery.filter(q -> q.range(rangeQuery.build()));
                 }
-                log.debug("Adding date range filter on {}: {}", dateField, range);
-                boolQuery.must(rangeQuery);
+            });
+
+            // 3. Access Control Logic
+            if ("RESTRICTED".equalsIgnoreCase(federalAccessStatus)) {
+                boolQuery.must(q -> q.term(t -> t.field("federalAccess").value("true")));
             }
-        }
-    }
-
-    // 3. Access Control filters
-    if (federalAccessStatus != null && !federalAccessStatus.isEmpty()) {
-        log.debug("Adding federalAccessStatus filter: {}", federalAccessStatus);
-        boolQuery.filter(QueryBuilders.termQuery("federalAccessStatus", federalAccessStatus));
-    }
-
-    if (gsamSensitivity != null && !gsamSensitivity.isEmpty()) {
-        log.debug("Adding gsamSensitivityLevel filter: [1, 6, 8]");
-        boolQuery.filter(QueryBuilders.termsQuery("gsamSensitivityLevel", 1, 6, 8));
-    }
-
-    // 4. Highlight setup
-    HighlightBuilder highlightBuilder = new HighlightBuilder();
-    String[] highlightFields = {"fulfillmentStatus", "crStatus", "centerName", "source",
-                                "workType", "queueName", "orderActivity", "taskName", "productType"};
-    for (String field : highlightFields) {
-        highlightBuilder.field(new HighlightBuilder.Field(field));
-    }
-    highlightBuilder.preTags("<em>");
-    highlightBuilder.postTags("</em>");
-
-    // 5. Aggregation
-    TermsAggregationBuilder aggregation = AggregationBuilders.terms("workTypeAgg")
-            .field("workType.keyword");
-
-    // 6. Final query setup
-    SearchSourceBuilder sourceBuilder = new SearchSourceBuilder()
-            .query(boolQuery)
-            .highlighter(highlightBuilder)
-            .aggregation(aggregation)
-            .size(1000);
-
-    SearchRequest searchRequest = new SearchRequest("your-index-name").source(sourceBuilder);
-
-    ResponseData responseData = new ResponseData();
-
-    try {
-        log.info("Executing Elasticsearch query...");
-        SearchResponse response = elasticsearchClient.search(searchRequest, RequestOptions.DEFAULT);
-        List<Map<String, Object>> results = new ArrayList<>();
-
-        for (SearchHit hit : response.getHits().getHits()) {
-            Map<String, Object> source = hit.getSourceAsMap();
-            Map<String, HighlightField> highlightMap = hit.getHighlightFields();
-            if (!highlightMap.isEmpty()) {
-                source.put("highlight", highlightMap);
+            if ("true".equalsIgnoreCase(isGsamCheckRequired)) {
+                boolQuery.filter(q -> q.terms(t -> t.field("gsamSensitivity")
+                        .terms(tqf -> tqf.value(v -> v.stringValues(Arrays.asList("1", "6", "8"))))));
             }
-            results.add(source);
-        }
-        responseData.setResults(results);
-        log.info("Search completed: {} results", results.size());
 
-        // Aggregation processing
-        Aggregations aggregations = response.getAggregations();
-        if (aggregations != null) {
-            Map<String, Object> aggMap = new HashMap<>();
-            Terms workTypeAgg = aggregations.get("workTypeAgg");
-            if (workTypeAgg != null) {
+            // 4. Highlighting setup
+            Highlight highlight = Highlight.of(h -> h.fields("taskName",
+                    HighlightField.of(f -> f.preTags("<em>").postTags("</em>").numberOfFragments(0))));
+
+            // 5. Aggregations
+            Map<String, Aggregation> aggregations = new HashMap<>();
+            aggregations.put("by_workType", AggregationBuilders.terms().field("workType.keyword").build());
+
+            // 6. Construct Search Request
+            SearchRequest searchRequest = new SearchRequest.Builder()
+                    .index("your-index-name")
+                    .query(q -> q.bool(boolQuery.build()))
+                    .highlight(highlight)
+                    .aggregations(aggregations)
+                    .size(1000)
+                    .build();
+
+            log.info("Executing global search with query: {}", searchRequest.query());
+
+            // 7. Execute Search
+            SearchResponse<Map> response = elasticsearchClient.search(searchRequest, Map.class);
+
+            List<Map<String, Object>> searchResults = new ArrayList<>();
+            for (Hit<Map> hit : response.hits().hits()) {
+                Map<String, Object> result = hit.source();
+                if (hit.highlight() != null && !hit.highlight().isEmpty()) {
+                    result.put("_highlight", hit.highlight());
+                }
+                searchResults.add(result);
+            }
+
+            // 8. Handle Aggregations
+            Map<String, Object> aggResults = new HashMap<>();
+            if (response.aggregations() != null && response.aggregations().containsKey("by_workType")) {
+                TermsAggregation termsAgg = response.aggregations().get("by_workType").terms();
                 List<Map<String, Object>> buckets = new ArrayList<>();
-                for (Terms.Bucket bucket : workTypeAgg.getBuckets()) {
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("key", bucket.getKey());
-                    data.put("docCount", bucket.getDocCount());
-                    buckets.add(data);
-                }
-                aggMap.put("workTypeAgg", buckets);
+                termsAgg.buckets().array().forEach(bucket -> {
+                    Map<String, Object> b = new HashMap<>();
+                    b.put("key", bucket.key());
+                    b.put("doc_count", bucket.docCount());
+                    buckets.add(b);
+                });
+                aggResults.put("workType", buckets);
             }
-            responseData.setAggregations(aggMap);
-            log.debug("Aggregation result: {}", aggMap);
+
+            // 9. Return Response
+            ResponseData responseData = new ResponseData();
+            responseData.setResults(searchResults);
+            responseData.setAggregations(aggResults);
+
+            return responseData;
+
+        } catch (IOException e) {
+            log.error("Error while performing global search", e);
+            return new ResponseData();
         }
-
-    } catch (IOException e) {
-        log.error("Failed to execute Elasticsearch query: {}", e.getMessage(), e);
-        throw new RuntimeException("Error executing Elasticsearch query", e);
     }
-
-    long elapsed = System.currentTimeMillis() - startTime;
-    log.info("Global search completed in {} ms", elapsed);
-
-    return responseData;
 }
