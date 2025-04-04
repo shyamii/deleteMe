@@ -1,3 +1,53 @@
+private void buildSearchQuery(BoolQuery.Builder mainQuery, String searchTerm, String matchType) {
+    if (!StringUtils.hasText(searchTerm)) return;
+
+    if ("exact".equalsIgnoreCase(matchType)) {
+        // Exact match using .keyword fields
+        mainQuery.must(QueryBuilders.multiMatch(m -> m
+            .query(searchTerm)
+            .fields(EZStatusUtil.getGlobalSearchMap().keySet().stream()
+                .map(f -> f + ".keyword")
+                .collect(Collectors.toList()))
+            .type(TextQueryType.BestFields)
+        );
+    } else {
+        // Wildcard search with proper escaping
+        String escapedTerm = escapeSearchTerm(searchTerm);
+        
+        BoolQuery.Builder searchBool = QueryBuilders.bool();
+        
+        // 1. Exact phrase match (boosted)
+        searchBool.should(QueryBuilders.matchPhrase(m -> m
+            .query(searchTerm)
+            .fields(EZStatusUtil.getGlobalSearchMap().keySet())
+            .boost(2.0f)
+        );
+        
+        // 2. Wildcard search with proper escaping
+        searchBool.should(QueryBuilders.queryString(q -> q
+            .query(escapedTerm + "*")
+            .fields(EZStatusUtil.getGlobalSearchMap().keySet())
+            .escape(true)
+            .defaultOperator(Operator.AND)
+        ));
+        
+        // 3. Fuzzy match for typos
+        searchBool.should(QueryBuilders.multiMatch(m -> m
+            .query(searchTerm)
+            .fields(EZStatusUtil.getGlobalSearchMap().keySet())
+            .fuzziness("AUTO")
+        ));
+        
+        mainQuery.must(searchBool.build()._toQuery());
+    }
+}
+
+private String escapeSearchTerm(String term) {
+    // Escape special characters that break query string parsing
+    return term.replaceAll("([+\\-=&|!(){}\\[\\]^\"~*?:\\\\/])", "\\\\$1");
+}
+
+
 public ResponseData getGlobalSearchData(String gsamSensitivity, String isGsamCheckRequired,
         String federalAccessStatus, String searchId, GlobalSearchRequest globalSearchRequest, String matchType) {
     
