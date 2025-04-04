@@ -152,5 +152,19 @@ public class GlobalSearchRepository {
         ));
     }
 }
+    private void applyDateRangeFilter(BoolQuery.Builder boolQuery, String fieldName, CustomDate customDate) {
+    if (customDate != null && (customDate.getStartDate() != null || customDate.getEndDate() != null)) {
+        RangeQuery.Builder rangeQuery = new RangeQuery.Builder().field(fieldName);
+        if (customDate.getStartDate() != null) {
+            rangeQuery.gte(customDate.getStartDate());
+        }
+        if (customDate.getEndDate() != null) {
+            rangeQuery.lte(customDate.getEndDate());
+        }
+        boolQuery.filter(q -> q.range(rangeQuery.build()));
+        log.debug("Applied range filter for {} from {} to {}", fieldName, customDate.getStartDate(), customDate.getEndDate());
+    }
+}
+
 
 }
