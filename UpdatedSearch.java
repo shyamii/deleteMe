@@ -1,18 +1,34 @@
 if ("FEDERAL".equalsIgnoreCase(federalAccessStatus)) {
-    BoolQuery.Builder accessQuery = QueryBuilders.bool();
+    List<Query> accessShouldQueries = new ArrayList<>();
 
-    accessQuery.should(s -> s.term(t -> t.field("federalFlag.keyword").value("FEDERAL")));
-    accessQuery.should(s -> s.term(t -> t.field("federalFlag.keyword").value("GENERAL")));
-    accessQuery.should(s -> s.bool(b -> b.mustNot(mn -> mn.exists(e -> e.field("federalFlag")))));
+    // Match federalFlag = FEDERAL
+    accessShouldQueries.add(QueryBuilders.term(t -> t.field("federalFlag.keyword").value("FEDERAL"))._toQuery());
 
-    boolQueryBuilder.must(accessQuery.minimumShouldMatch("1"));
+    // Match federalFlag = GENERAL
+    accessShouldQueries.add(QueryBuilders.term(t -> t.field("federalFlag.keyword").value("GENERAL"))._toQuery());
+
+    // Match missing federalFlag
+    accessShouldQueries.add(QueryBuilders.bool(b -> b
+        .mustNot(mn -> mn.exists(e -> e.field("federalFlag")))
+    )._toQuery());
+
+    // Wrap should queries in a bool
+    Query accessQuery = QueryBuilders.bool(b -> b
+        .should(accessShouldQueries)
+        .minimumShouldMatch("1")
+    )._toQuery();
+
+    // Add to the main query
+    boolQueryBuilder.must(accessQuery);
 }
 else {
-    minimumShouldMatch++;
-
     // Exclude documents where federalFlag = FEDERAL
-    boolQueryBuilder.mustNot(mn -> mn.term(t -> t.field("federalFlag.keyword").value("FEDERAL")));
+    boolQueryBuilder.mustNot(QueryBuilders
+        .term(t -> t.field("federalFlag.keyword").value("FEDERAL"))
+        ._toQuery()
+    );
 }
+
 
 
 
