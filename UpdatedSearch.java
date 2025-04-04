@@ -1,3 +1,21 @@
+if ("FEDERAL".equalsIgnoreCase(federalAccessStatus)) {
+    BoolQuery.Builder accessQuery = QueryBuilders.bool();
+
+    accessQuery.should(s -> s.term(t -> t.field("federalFlag.keyword").value("FEDERAL")));
+    accessQuery.should(s -> s.term(t -> t.field("federalFlag.keyword").value("GENERAL")));
+    accessQuery.should(s -> s.bool(b -> b.mustNot(mn -> mn.exists(e -> e.field("federalFlag")))));
+
+    boolQueryBuilder.must(accessQuery.minimumShouldMatch("1"));
+}
+else {
+    minimumShouldMatch++;
+
+    // Exclude documents where federalFlag = FEDERAL
+    boolQueryBuilder.mustNot(mn -> mn.term(t -> t.field("federalFlag.keyword").value("FEDERAL")));
+}
+
+
+
 package com.yourpackage.repository;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
