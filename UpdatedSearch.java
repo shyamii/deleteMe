@@ -1,14 +1,19 @@
-List<String> fieldsToSearch = Arrays.asList("taskName", "orderId", "centerName", "queueName");
+if (searchId != null && !searchId.isBlank()) {
+    List<String> fieldsToSearch = Arrays.asList("circuitId", "taskName", "orderId", "centerName");
 
-for (String field : fieldsToSearch) {
-    boolQuery.should(s -> s.term(t -> t
+    for (String field : fieldsToSearch) {
+        boolQuery.should(s -> s.term(t -> t
             .field(field + ".keyword")
             .value(searchId)));
-    boolQuery.should(s -> s.match(m -> m
-            .field(field)
-            .query(searchId)));
+
+        boolQuery.should(s -> s.wildcard(w -> w
+            .field(field + ".keyword")
+            .value("*" + searchId.toLowerCase() + "*")));
+    }
+
+    boolQuery.minimumShouldMatch("1");
 }
-boolQuery.minimumShouldMatch("1");
+
 
 import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
 
