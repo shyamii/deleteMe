@@ -77,17 +77,18 @@ public class GlobalSearchRepository {
                 boolQuery.must(q -> q.term(t -> t.field("federalAccess").value("true")));
             }
             if ("FEDERAL".equalsIgnoreCase(federalAccessStatus)) {
-    boolQuery.filter(q -> q.bool(b -> b.should(
-            s -> s.term(t -> t.field("federalAccess").value("federal")),
-            s -> s.term(t -> t.field("federalAccess").value("general")),
-            s -> s.bool(bb -> bb.mustNot(mn -> mn.exists(e -> e.field("federalAccess"))))
-    )));
+    boolQuery.filter(q -> q.bool(b -> b.should(Arrays.asList(
+        s -> s.term(t -> t.field("federalAccess").value("federal")),
+        s -> s.term(t -> t.field("federalAccess").value("general")),
+        s -> s.bool(bb -> bb.mustNot(mn -> mn.exists(e -> e.field("federalAccess"))))
+    ))));
 } else if ("GENERAL".equalsIgnoreCase(federalAccessStatus)) {
-    boolQuery.filter(q -> q.bool(b -> b.should(
-            s -> s.term(t -> t.field("federalAccess").value("general")),
-            s -> s.bool(bb -> bb.mustNot(mn -> mn.exists(e -> e.field("federalAccess"))))
-    )));
+    boolQuery.filter(q -> q.bool(b -> b.should(Arrays.asList(
+        s -> s.term(t -> t.field("federalAccess").value("general")),
+        s -> s.bool(bb -> bb.mustNot(mn -> mn.exists(e -> e.field("federalAccess"))))
+    ))));
 }
+
 
             if ("true".equalsIgnoreCase(isGsamCheckRequired) && gsamSensitivity != null && !gsamSensitivity.isEmpty()) {
     List<String> values = Arrays.stream(gsamSensitivity.split("[,|^]"))
