@@ -1,26 +1,18 @@
-if (!"FEDERAL".equalsIgnoreCase(federalAccessStatus)) {
-    // Build should clause: federalFlag == GENERAL OR federalFlag is missing
-    List<Query> shouldQueries = new ArrayList<>();
+import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
 
-    // Match federalFlag == GENERAL
-    shouldQueries.add(QueryBuilders
-        .term(t -> t.field("federalFlag.keyword").value("GENERAL"))
-        ._toQuery());
-
-    // Match documents where federalFlag is missing (null)
-    shouldQueries.add(QueryBuilders
-        .bool(b -> b.mustNot(mn -> mn.exists(e -> e.field("federalFlag"))))
-        ._toQuery());
-
-    // Combine both with minimum_should_match = 1
-    Query accessControlQuery = QueryBuilders.bool(b -> b
-        .should(shouldQueries)
-        .minimumShouldMatch("1"))
-        ._toQuery();
-
-    // Add this to main query
-    boolQueryBuilder.must(accessControlQuery);
+if ("FEDERAL".equalsIgnoreCase(federalAccessStatus)) {
+    boolQuery.filter(f -> f.bool(b -> b.should(Arrays.asList(
+        QueryBuilders.term(t -> t.field("federalAccess").value("federal")),
+        QueryBuilders.term(t -> t.field("federalAccess").value("general")),
+        QueryBuilders.bool(bb -> bb.mustNot(mn -> mn.exists(e -> e.field("federalAccess"))))
+    ))));
+} else if ("GENERAL".equalsIgnoreCase(federalAccessStatus)) {
+    boolQuery.filter(f -> f.bool(b -> b.should(Arrays.asList(
+        QueryBuilders.term(t -> t.field("federalAccess").value("general")),
+        QueryBuilders.bool(bb -> bb.mustNot(mn -> mn.exists(e -> e.field("federalAccess"))))
+    ))));
 }
+
 
 
 
