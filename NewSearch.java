@@ -1,3 +1,15 @@
+for (BulkResponseItem item : bulkResponse.items()) {
+    if (item.error() != null) {
+        // ❌ Error logging
+        logger.error("Bulk operation failed. Type: {}, ID: {}, Reason: {}",
+                item.operationType(), item.id(), item.error().reason());
+    } else {
+        // ✅ Success logging
+        logger.info("Bulk operation succeeded. Type: {}, ID: {}",
+                item.operationType(), item.id());
+    }
+}
+
 private void buildSearchQuery(BoolQuery.Builder mainQuery, String searchTerm, String matchType) {
     if (!StringUtils.hasText(searchTerm)) return;
 
