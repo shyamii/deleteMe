@@ -10,13 +10,40 @@ public RouteLocator customRoutes(RouteLocatorBuilder builder) {
         .build();
 }
 
+@Bean
+public RouteLocator customRoutes(RouteLocatorBuilder builder) {
+    return builder.routes()
+        .route("my-service", r -> r
+            .path("/myservice/**")
+            .filters(f -> f.circuitBreaker(c -> c
+                .setName("myCircuitBreaker")
+                .setFallbackUri("forward:/custom-fallback")))
+            .uri("lb://MY-SERVICE"))
+        .build();
+}
+
 @RestController
-public class FallbackController {
-    @RequestMapping("/fallback")
-    public Mono<String> fallback() {
-        return Mono.just("Service is unavailable, this is a fallback");
+public class GatewayFallbackController {
+
+    @RequestMapping("/custom-fallback")
+    public Mono<ResponseEntity<String>> fallback(ServerWebExchange exchange) {
+        Throwable cause = exchange.getAttribute(ServerWebExchangeUtils.CIRCUITBREAKER_EXECUTION_EXCEPTION_ATTR);
+
+        HttpStatus status;
+        if (cause != null && cause.getClass().getSimpleName().equals("CallNotPermittedException")) {
+            // Resilience4j throws this when circuit is open
+            status = HttpStatus.SERVICE_UNAVAILABLE;
+        } else if (cause != null && cause.getClass().getSimpleName().contains("Timeout")) {
+            // Could be TimeoutException from Resilience4j
+            status = HttpStatus.GATEWAY_TIMEOUT;
+        } else {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+
+        return Mono.just(ResponseEntity.status(status).body("Fallback triggered: " + status));
     }
 }
+
 
 
 @Configuration
