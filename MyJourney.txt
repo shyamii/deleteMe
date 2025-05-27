@@ -1,0 +1,77 @@
+https://www.linkedin.com/in/shyam-kulkarni/
+
+Creospan Private Limited
+Senior Engineer
+Mar 20, 2023 -> Today
+
+	Flow360 (Verizon)
+	*	 Developed a web portal for tracking orders, featuring 6-7 microservices handling various operations.
+    *    Built the user interface using React for a responsive and dynamic experience.
+    *    Implemented robust API integrations for seamless communication between microservices.
+    *    Technologies Used: Spring Boot, Spring Security, Elasticsearch, ReactJS, Oracle, Gradle.
+
+	Global Search (Verizon)
+	*	 Developed a Spring Batch application for processing data from Oracle and integrating with Elasticsearch.
+    *    Designed efficient batch jobs and error handling mechanisms.
+    *    Utilized Spring Boot, Elasticsearch, and Gradle for a scalable solution.
+    *    Technologies Used: Spring Boot, Spring Batch, Elasticsearch, Oracle, Gradle.
+
+
+Role Desciption
+As a Full Stack Developer at Verizon, contributed to the development of microservice-based web applications and batch processing systems. Designed and implemented a responsive user interface using ReactJS and developed scalable back-end services with Spring Boot. Built and integrated multiple RESTful APIs for seamless communication across microservices. Led the development of a Spring Batch application for processing and indexing large volumes of Oracle data into Elasticsearch. Applied robust error-handling strategies and leveraged tools like Gradle, Spring Security, and Elasticsearch to ensure performance, security, and maintainability of the applications.
+
+Technologies: Spring Boot, Spring Batch, Spring Security, ReactJS, Oracle, Elasticsearch, Gradle
+
+
+Applied AI Consulting
+Software Engineer
+9th June 2021 to 16th March 2023.
+
+	Gamma (Nissan JPN)
+	*    Developed a Spring Boot microservice application for gathering and processing data from Leaf and Ariya vehicles. 
+    *    Implemented business logic for data transformation and ensured data delivery to the destination.
+    *    Hosted the application on AWS for scalability and reliability.
+    *    Technologies Used: Spring Boot, Spring Batch, AWS, Maven.
+	
+	Spacelab Healthcare (CVS Health)
+	*    Developed a Patient Management System using Spring MVC, featuring over 10 microservices with role- based permissions. 
+    *    Implemented databases using MySQL and PostgreSQL.
+    *    Utilized the Vaadin framework for the user interface to provide an interactive experience.
+    *    Technologies Used: Spring MVC, Vaadin, MySQL, PostgreSQL, Microservices.
+	
+Role Desciption	
+As a Backend Developer, engineered robust microservice-based applications for automotive and healthcare domains. For Nissan’s Gamma project, developed a Spring Boot microservice to collect and transform vehicle telemetry data from Leaf and Ariya models, ensuring accurate data processing and delivery within a scalable AWS-hosted environment. In the Spacelab Healthcare project at CVS Health, contributed to building a comprehensive Patient Management System using Spring MVC with more than 10 microservices, integrating secure role-based access control and leveraging MySQL and PostgreSQL databases. Designed interactive UIs with the Vaadin framework to enhance user experience.
+
+Technologies: Spring Boot, Spring Batch, AWS, Maven, Spring MVC, Vaadin, MySQL, PostgreSQL, Microservices
+
+TCS
+Systems Engineer
+29 Apr 2019 - 08 June 2021
+
+	Generic Feed Loader Automation (AT&T)
+	*    Developed an automation tool using Spring Boot and ReactJS to onboard multiple projects simultaneously. 
+    *    Enabled uploading and managing data files across various data tables.
+    *    Incorporated features such as cost advantages, validation checks, history tracking, and backward compatibility.
+    *    Technologies Used: Spring Boot, Spring Batch, ReactJS.
+	
+	
+As a Full Stack Developer, designed and implemented an automation tool for AT&T to streamline the onboarding of multiple projects concurrently. Developed the backend using Spring Boot and Spring Batch to handle complex data operations and file management across multiple data tables. Built an intuitive front-end using ReactJS, enabling users to upload, validate, and track data with features like cost analysis, history tracking, and backward compatibility support. Ensured the solution was scalable and adaptable to evolving project requirements.
+
+Technologies: Spring Boot, Spring Batch, ReactJS
+	
+Government College of Engineering Amravati
+Bachelor of Technology
+Electronics and Telecommunication Engineering
+
+Government Polytechnic Amravati
+
+
+3100000
+3500000
+
+
+Strong FIt
+With hands-on experience in building scalable, microservice-based applications across diverse domains such as telecom, automotive, and healthcare, I bring a well-rounded skill set that aligns closely with the requirements of this role. I have a strong foundation in backend development using Spring Boot and Spring Batch, and am equally comfortable building responsive frontends with ReactJS and Vaadin. My work includes developing batch processing systems, integrating with Elasticsearch, managing relational databases like Oracle, MySQL, and PostgreSQL, and deploying applications on AWS.
+
+In addition to my technical skills, I consistently focus on performance, scalability, and maintainability—evident from my work on automation tools, data loaders, and role-based systems. I adapt quickly, communicate effectively with cross-functional teams, and am always committed to delivering high-quality solutions that meet business needs. I believe these experiences make me a strong fit for your team and the challenges of this position.
+
