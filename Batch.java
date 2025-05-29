@@ -1,24 +1,18 @@
 @Bean
-public JdbcPagingItemReader<Long> idReader(DataSource dataSource) {
-    JdbcPagingItemReader<Long> reader = new JdbcPagingItemReader<>();
+public JdbcCursorItemReader<Long> idReader(DataSource dataSource) {
+    JdbcCursorItemReader<Long> reader = new JdbcCursorItemReader<>();
     reader.setDataSource(dataSource);
-    reader.setPageSize(100);
+    reader.setSql("""
+        SELECT a.id
+        FROM table_a a
+        JOIN table_b b ON a.some_id = b.some_id
+        WHERE a.status = 'inactive' AND b.deleted = 'N'
+    """); // your full custom query here
+
     reader.setRowMapper((rs, rowNum) -> rs.getLong("id"));
-
-    SqlPagingQueryProviderFactoryBean queryProvider = new SqlPagingQueryProviderFactoryBean();
-    queryProvider.setDataSource(dataSource);
-    queryProvider.setSelectClause("SELECT id");
-    queryProvider.setFromClause("FROM your_table");
-    queryProvider.setSortKey("id");
-
-    try {
-        reader.setQueryProvider(queryProvider.getObject());
-    } catch (Exception e) {
-        throw new RuntimeException("Error setting query provider", e);
-    }
-
     return reader;
 }
+
 
 
 @Bean
