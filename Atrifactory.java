@@ -1,3 +1,48 @@
+#!/bin/bash
+
+# ---------- Configuration ----------
+ARTIFACTORY_URL="https://your-domain.jfrog.io/artifactory"
+REPO_PATH="libs-release-local/your-folder"  # No leading or trailing slash
+USERNAME="your-username"
+PASSWORD="your-password"
+LOG_FILE="delete_jars.log"
+
+# ---------- Logging Function ----------
+log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+# ---------- Get List of All Files ----------
+log "Fetching all files from $REPO_PATH..."
+
+RESPONSE=$(curl -s -u "$USERNAME:$PASSWORD" \
+  "$ARTIFACTORY_URL/api/storage/$REPO_PATH?list&deep=1")
+
+# ---------- Parse JSON and Extract .jar URIs ----------
+JAR_FILES=$(echo "$RESPONSE" | grep -oE '"uri" *: *"[^"]+\.jar"' | sed -E 's/.*"uri" *: *"([^"]+)"/\1/')
+
+if [[ -z "$JAR_FILES" ]]; then
+    log "No .jar files found under $REPO_PATH."
+    exit 0
+fi
+
+log "Found $(echo "$JAR_FILES" | wc -l) .jar files. Starting deletion..."
+
+# ---------- Delete Each .jar File ----------
+while read -r jar_uri; do
+    FULL_URL="$ARTIFACTORY_URL/$REPO_PATH$jar_uri"
+    log "Deleting $FULL_URL"
+    RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -u "$USERNAME:$PASSWORD" -X DELETE "$FULL_URL")
+    if [[ "$RESPONSE_CODE" == "204" ]]; then
+        log "✅ Deleted: $FULL_URL"
+    else
+        log "❌ Failed to delete: $FULL_URL (HTTP $RESPONSE_CODE)"
+    fi
+done <<< "$JAR_FILES"
+
+log "Deletion complete."
+
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
