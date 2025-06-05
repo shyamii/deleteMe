@@ -1,5 +1,42 @@
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+
+public class RunCurl {
+
+    public static void main(String[] args) {
+        try {
+            String command = "curl -u your-username:your-password -X DELETE \"https://your-domain.jfrog.io/artifactory/libs-release-local/path-to-your.jar\"";
+            Process process = Runtime.getRuntime().exec(command);
+
+            // Read standard output (stdout)
+            BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            // Read standard error (stderr)
+            BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+
+            String line;
+            System.out.println("Standard Output:");
+            while ((line = stdInput.readLine()) != null) {
+                System.out.println(line);
+            }
+
+            System.out.println("Standard Error:");
+            while ((line = stdError.readLine()) != null) {
+                System.err.println(line);
+            }
+
+            int exitCode = process.waitFor();
+            System.out.println("Process exited with code: " + exitCode);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Base64;
