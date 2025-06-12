@@ -1,3 +1,35 @@
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.core.io.buffer.DataBuffer;
+import reactor.core.publisher.Mono;
+
+public class ResponseUtils {
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    public static Mono<Void> writeJsonResponse(ServerWebExchange exchange, Object body, HttpStatus status) {
+        byte[] bytes;
+        try {
+            bytes = objectMapper.writeValueAsBytes(body);
+        } catch (Exception e) {
+            bytes = "{\"error\":\"Internal error\"}".getBytes();
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+
+        var response = exchange.getResponse();
+        response.setStatusCode(status);
+        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        DataBuffer buffer = response.bufferFactory().wrap(bytes);
+
+        return response.writeWith(Mono.just(buffer));
+    }
+}
+
+
+
 #!/bin/bash
 
 # ---------- Configuration ----------
